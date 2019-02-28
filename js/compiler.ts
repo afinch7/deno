@@ -166,7 +166,8 @@ class Compiler implements ts.LanguageServiceHost, ts.FormatDiagnosticsHost {
     resolveJsonModule: true,
     sourceMap: true,
     stripComments: true,
-    target: ts.ScriptTarget.ESNext
+    target: ts.ScriptTarget.ESNext,
+    experimentalDecorators: this.experimentalDecorators
   };
   // A reference to the `./os.ts` module, so it can be monkey patched during
   // testing
@@ -300,7 +301,7 @@ class Compiler implements ts.LanguageServiceHost, ts.FormatDiagnosticsHost {
     innerMap.set(moduleSpecifier, fileName);
   }
 
-  constructor() {
+  constructor(private readonly experimentalDecorators: boolean) {
     this._service = this._ts.createLanguageService(this);
   }
 
@@ -507,8 +508,6 @@ class Compiler implements ts.LanguageServiceHost, ts.FormatDiagnosticsHost {
   }
 }
 
-const compiler = new Compiler();
-
 // set global objects for compiler web worker
 window.clearTimeout = clearTimer;
 window.console = console;
@@ -519,25 +518,29 @@ window.close = workerClose;
 window.TextDecoder = TextDecoder;
 window.TextEncoder = TextEncoder;
 
-// provide the "main" function that will be called by the privileged side when
-// lazy instantiating the compiler web worker
-window.compilerMain = function compilerMain() {
-  // workerMain should have already been called since a compiler is a worker.
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-  window.onmessage = ({ data }: { data: Uint8Array }) => {
-    const json = decoder.decode(data);
-    const { specifier, referrer } = JSON.parse(json) as CompilerLookup;
-
-    const result = compiler.compile(specifier, referrer);
-
-    const responseJson = JSON.stringify(result);
-    const response = encoder.encode(responseJson);
-    postMessage(response);
-  };
-};
-
 /* tslint:disable-next-line:no-default-export */
 export default function denoMain() {
-  os.start("TS");
+  const startResMsg = os.start("TS");
+
+  console.log(startResMsg.expDecsFlag());
+
+  const compiler = new Compiler(startResMsg.expDecsFlag());
+
+  // provide the "main" function that will be called by the privileged side when
+  // lazy instantiating the compiler web worker
+  window.compilerMain = function compilerMain() {
+    // workerMain should have already been called since a compiler is a worker.
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    window.onmessage = ({ data }: { data: Uint8Array }) => {
+      const json = decoder.decode(data);
+      const { specifier, referrer } = JSON.parse(json) as CompilerLookup;
+
+      const result = compiler.compile(specifier, referrer);
+
+      const responseJson = JSON.stringify(result);
+      const response = encoder.encode(responseJson);
+      postMessage(response);
+    };
+  };
 }
