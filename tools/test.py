@@ -89,8 +89,10 @@ def main(argv):
 
     deno_core_http_bench_test = os.path.join(
         build_dir, "deno_core_http_bench_test" + executable_suffix)
-    check_exists(deno_core_http_bench_test)
-    run([deno_core_http_bench_test])
+    # Note deno_core_http_bench_test is disabled on win32 at the moment.
+    if os.name != 'nt':
+        check_exists(deno_core_http_bench_test)
+        run([deno_core_http_bench_test])
 
     unit_tests(deno_exe)
 
@@ -103,9 +105,10 @@ def main(argv):
     # Windows does not support the pty module used for testing the permission
     # prompt.
     if os.name != 'nt':
-        from permission_prompt_test import permission_prompt_test
         from is_tty_test import is_tty_test
-        permission_prompt_test(deno_exe)
+        # TODO(ry) Re-enable permission_prompt_test
+        # from permission_prompt_test import permission_prompt_test
+        # permission_prompt_test(deno_exe)
         is_tty_test(deno_exe)
 
     repl_tests(deno_exe)
