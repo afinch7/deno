@@ -89,10 +89,8 @@ def main(argv):
 
     deno_core_http_bench_test = os.path.join(
         build_dir, "deno_core_http_bench_test" + executable_suffix)
-    # Note deno_core_http_bench_test is disabled on win32 at the moment.
-    if os.name != 'nt':
-        check_exists(deno_core_http_bench_test)
-        run([deno_core_http_bench_test])
+    check_exists(deno_core_http_bench_test)
+    run([deno_core_http_bench_test])
 
     unit_tests(deno_exe)
 

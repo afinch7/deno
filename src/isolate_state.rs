@@ -1,7 +1,4 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-
-#![allow(dead_code)]
-
 use crate::cli::Buf;
 use crate::deno_dir;
 use crate::flags;

@@ -1,5 +1,4 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-#![allow(dead_code)]
 use crate::resources::Resource;
 use futures;
 use futures::Future;
@@ -9,7 +8,6 @@ use std::mem;
 use std::net::SocketAddr;
 use tokio;
 use tokio::net::TcpStream;
-use tokio_executor;
 
 pub fn run<F>(future: F)
 where
@@ -33,10 +31,12 @@ where
 // Set the default executor so we can use tokio::spawn(). It's difficult to
 // pass around mut references to the runtime, so using with_default is
 // preferable. Ideally Tokio would provide this function.
+#[cfg(test)]
 pub fn init<F>(f: F)
 where
   F: FnOnce(),
 {
+  use tokio_executor;
   let rt = tokio::runtime::Runtime::new().unwrap();
   let mut executor = rt.executor();
   let mut enter = tokio_executor::enter().expect("Multiple executors at once");

@@ -649,7 +649,7 @@ where
     Ok(Ready(Ok(v))) => Ok(v.into()),
     Ok(Ready(Err(err))) => Err(err),
     Ok(NotReady) => Ok(NotReady),
-    Err(_err) => panic!("blocking error"),
+    Err(err) => panic!("blocking error {}", err),
   }
 }
 
