@@ -1880,7 +1880,6 @@ fn op_worker_post_message(
 mod tests {
   use super::*;
   use crate::cli::Cli;
-  use crate::isolate_init::IsolateInit;
   use crate::isolate_state::IsolateState;
   use crate::permissions::DenoPermissions;
   use std::sync::atomic::AtomicBool;
@@ -1897,10 +1896,7 @@ mod tests {
       ..Default::default()
     };
     let cli = Cli::new(
-      IsolateInit {
-        snapshot: None,
-        init_script: None,
-      },
+      None,
       state,
       permissions,
     );
@@ -1939,10 +1935,7 @@ mod tests {
       ..Default::default()
     };
     let cli = Cli::new(
-      IsolateInit {
-        snapshot: None,
-        init_script: None,
-      },
+      None,
       state,
       permissions,
     );
@@ -1981,10 +1974,7 @@ mod tests {
       ..Default::default()
     };
     let cli = Cli::new(
-      IsolateInit {
-        snapshot: None,
-        init_script: None,
-      },
+      None,
       state,
       permissions,
     );
@@ -2023,10 +2013,7 @@ mod tests {
       ..Default::default()
     };
     let cli = Cli::new(
-      IsolateInit {
-        snapshot: None,
-        init_script: None,
-      },
+      None,
       state,
       permissions,
     );

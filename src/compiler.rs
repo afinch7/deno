@@ -1,6 +1,6 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use crate::cli::Buf;
-use crate::isolate_init;
+use crate::startup_data;
 use crate::isolate_state::IsolateState;
 use crate::msg;
 use crate::permissions::DenoPermissions;
@@ -49,7 +49,7 @@ impl ModuleMetaData {
 
 fn lazy_start(parent_state: &IsolateState) -> Resource {
   let mut cell = C_RID.lock().unwrap();
-  let isolate_init = isolate_init::compiler_isolate_init();
+  let startup_data = startup_data::compiler_isolate_init();
   let permissions = DenoPermissions {
     allow_read: AtomicBool::new(true),
     allow_write: AtomicBool::new(true),
@@ -61,7 +61,7 @@ fn lazy_start(parent_state: &IsolateState) -> Resource {
 
   let rid = cell.get_or_insert_with(|| {
     let resource = workers::spawn(
-      isolate_init,
+      Some(startup_data),
       parent_state,
       "compilerMain()".to_string(),
       permissions,
