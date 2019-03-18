@@ -56,6 +56,7 @@ fn lazy_start(parent_state: &IsolateState) -> Resource {
     allow_env: AtomicBool::new(false),
     allow_net: AtomicBool::new(true),
     allow_run: AtomicBool::new(false),
+    ..Default::default()
   };
 
   let rid = cell.get_or_insert_with(|| {
