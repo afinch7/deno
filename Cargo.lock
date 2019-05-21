@@ -215,6 +215,7 @@ dependencies = [
  "atty 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "deno 0.6.0",
+ "deno_lib_bindings 0.6.0",
  "dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "flatbuffers 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -246,6 +247,14 @@ dependencies = [
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "utime 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "deno_lib_bindings"
+version = "0.6.0"
+dependencies = [
+ "deno 0.6.0",
+ "hyper 0.12.29 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

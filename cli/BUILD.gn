@@ -14,6 +14,11 @@ main_extern = [
     crate_type = "rlib"
   },
   {
+    label = "../lib_bindings:deno_lib_bindings"
+    crate_name = "deno_lib_bindings"
+    crate_type = "rlib"
+  },
+  {
     label = "$rust_build:serde_derive"
     crate_name = "serde_derive"
     crate_type = "proc_macro"
