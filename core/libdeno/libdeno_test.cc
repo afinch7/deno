@@ -247,3 +247,14 @@ TEST(LibDenoTest, SharedAtomics) {
   EXPECT_EQ(s[2], 2);
   deno_delete(d);
 }
+
+TEST(LibDenoTest, CheckOpId) {
+  Deno* d = deno_new(deno_config{0, snapshot, empty, nullptr});
+  int test_op_id = 0;
+  deno_set_op_id(d, "testNamespace", "testOp", &test_op_id);
+  int test_op_2_id = 1;
+  deno_set_op_id(d, "testNamespace", "testOp2", &test_op_2_id);
+  deno_execute(d, nullptr, "a.js", "CheckOpId()");
+  EXPECT_EQ(nullptr, deno_last_exception(d));
+  deno_delete(d);
+}

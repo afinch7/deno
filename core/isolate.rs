@@ -340,6 +340,23 @@ impl Isolate {
     assert_ne!(snapshot.data_len, 0);
     Ok(snapshot)
   }
+
+  pub fn set_op_id(&self, op_namespace: &str, op_name: &str, op_id: u32) {
+    let op_namespace_ = CString::new(op_namespace.to_string()).unwrap();
+    let op_namespace_ptr = op_namespace_.as_ptr() as *const libc::c_char;
+
+    let op_name_ = CString::new(op_name.to_string()).unwrap();
+    let op_name_ptr = op_name_.as_ptr() as *const libc::c_char;
+
+    unsafe {
+      libdeno::deno_set_op_id(
+        self.libdeno_isolate,
+        op_namespace_ptr,
+        op_name_ptr,
+        op_id as *const libc::c_int,
+      )
+    }
+  }
 }
 
 /// Called during mod_instantiate() to resolve imports.

@@ -195,3 +195,8 @@ global.LibDenoEvalContextError = () => {
   assert(!errInfo5.isCompileError); // is NOT a compilation error! (just eval)
   assert(errInfo5.thrown.message === "Unexpected end of input");
 };
+
+global.CheckOpId = () => {
+  assert(Deno.opIds.testNamespace.testOp === 0);
+  assert(Deno.opIds.testNamespace.testOp2 === 1);
+};

@@ -476,6 +476,9 @@ void InitializeContext(v8::Isolate* isolate, v8::Local<v8::Context> context) {
 
   CHECK(core_val->SetAccessor(context, deno::v8_str("shared"), Shared)
             .FromJust());
+
+  auto op_ids_val = v8::Object::New(isolate);
+  CHECK(deno_val->Set(context, deno::v8_str("opIds"), op_ids_val).FromJust());
 }
 
 void MessageCallback(v8::Local<v8::Message> message,
