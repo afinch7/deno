@@ -18,6 +18,9 @@ main_extern = [
 ]
 
 main_extern_rlib = [
+  "libloading",
+  "cargo",
+  "lazy_static",
   "hyper",
 ]
 
