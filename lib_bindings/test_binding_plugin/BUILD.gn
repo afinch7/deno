@@ -1,0 +1,25 @@
+# Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+import("//build_extra/rust/rust.gni")
+
+group("default") {
+  testonly = true
+  deps = [
+    ":deno_lib_bindings",
+  ]
+}
+
+main_extern = [
+  {
+    label = "../:deno_lib_bindings"
+    crate_name = "deno"
+    crate_type = "rlib"
+  }
+]
+
+main_extern_rlib = []
+
+rust_rlib("test_binding_plugin") {
+  source_root = "lib.rs"
+  extern = main_extern
+  extern_rlib = main_extern_rlib
+}

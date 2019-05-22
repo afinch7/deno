@@ -1,21 +1,7 @@
-use crate::errors::{BindingError, BindingResult};
-use deno::{Buf, PinnedBuf};
+// Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+use crate::errors::{BindingResult};
+use crate::dispatch::{OpDispatchFn};
 use std::any::Any;
-use hyper::rt::Future;
-
-/// Dispatch context to give ops access to various context functions
-pub trait DispatchContext {
-    // TODO(afinch7) add dispatch context functions
-}
-
-/// Result future of a op completion
-pub type OpWithError = dyn Future<Item = Buf, Error = BindingError> + Send;
-
-/// Dispatch funciton type
-/// base is a placeholder value for now not sure what we want to use there
-pub type OpDispatchFn =
-  fn(state: &DispatchContext, base: &str, data: Option<PinnedBuf>)
-    -> Box<OpWithError>;
 
 /// Type for uniquie identifyer of native binding ops
 pub type OpId = u32;
@@ -45,12 +31,12 @@ pub trait BindingPlugin: Any + Send + Sync {
 macro_rules! declare_binding_plugin {
     ($plugin_type:ty, $constructor:path) => {
         #[no_mangle]
-        pub extern "C" fn _binding_plugin_create() -> *mut $crate::Plugin {
+        pub extern "C" fn _binding_plugin_create() -> *mut $crate::plugin::BindingPlugin {
             // make sure the constructor is the correct type.
             let constructor: fn() -> $plugin_type = $constructor;
 
             let object = constructor();
-            let boxed: Box<$crate::Plugin> = Box::new(object);
+            let boxed: Box<$crate::plugin::BindingPlugin> = Box::new(object);
             Box::into_raw(boxed)
         }
     };
