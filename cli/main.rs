@@ -14,6 +14,7 @@ extern crate nix;
 extern crate rand;
 
 mod ansi;
+mod bindings;
 pub mod compiler;
 pub mod deno_dir;
 mod dispatch_minimal;
@@ -84,7 +85,6 @@ where
   }
 }
 
-// TODO(ry) Move this to main.rs
 pub fn print_file_info(worker: &Worker, url: &str) {
   let maybe_out =
     worker::fetch_module_meta_data_and_maybe_compile(&worker.state, url, ".");
@@ -92,7 +92,8 @@ pub fn print_file_info(worker: &Worker, url: &str) {
     println!("{}", err);
     return;
   }
-  let out = maybe_out.unwrap();
+  // TODO(afinch7) print out info about loaded bindings as well?
+  let (out, _) = maybe_out.unwrap();
 
   println!("{} {}", ansi::bold("local:".to_string()), &(out.filename));
 

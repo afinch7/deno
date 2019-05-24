@@ -137,6 +137,9 @@ enum ErrorKind: byte {
   OpNotAvaiable,
   WorkerInitFailed,
   UnixError,
+
+  // binding errors
+  BindingError
 }
 
 table Cwd {}
@@ -149,6 +152,7 @@ enum MediaType: byte {
   JavaScript = 0,
   TypeScript,
   Json,
+  Toml,
   Unknown
 }
 

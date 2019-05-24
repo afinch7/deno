@@ -296,7 +296,7 @@ extern "C" {
     i: *const isolate,
     op_namespace: *const c_char,
     op_name: *const c_char,
-    op_id: *const c_int,
+    op_id: c_int,
   );
 
   pub fn deno_snapshot_new(i: *const isolate) -> Snapshot1<'static>;

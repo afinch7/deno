@@ -18,6 +18,12 @@ use std::error::Error;
 use std::fmt;
 use std::marker::PhantomData;
 
+/// Uniquie identifyer type for native binding ops
+pub type OpId = u32;
+
+/// Full custom op id definition in (op_namespace, op_name, op_id) format
+pub type CustomOpId = (String, String, OpId);
+
 /// Represent result of fetching the source code of a module.
 /// Contains both module name and code.
 /// Module name might be different from initial URL used for loading
@@ -29,6 +35,7 @@ use std::marker::PhantomData;
 pub struct SourceCodeInfo {
   pub module_name: String,
   pub code: String,
+  pub custom_op_ids: Option<Vec<CustomOpId>>,
 }
 
 pub type SourceCodeInfoFuture<E> =
@@ -208,6 +215,15 @@ impl<L: Loader> Future for RecursiveLoad<L> {
             let result = {
               let loader = self.loader.as_mut().unwrap();
               let isolate = loader.isolate();
+              if source_code_info.custom_op_ids.is_some() {
+                for custom_op_id in &source_code_info.custom_op_ids.unwrap() {
+                  isolate.set_op_id(
+                    &custom_op_id.0,
+                    &custom_op_id.1,
+                    custom_op_id.2,
+                  );
+                }
+              }
               isolate.mod_new(
                 completed.is_root,
                 module_name,
@@ -625,6 +641,7 @@ mod tests {
         Some(src) => Ok(Async::Ready(SourceCodeInfo {
           code: src.0.to_owned(),
           module_name: src.1.to_owned(),
+          custom_op_ids: None,
         })),
         None => Err(MockError::LoadErr),
       }

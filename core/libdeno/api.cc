@@ -245,7 +245,7 @@ void deno_terminate_execution(Deno* d_) {
 }
 
 void deno_set_op_id(Deno* d_, const char* op_namespace, const char* op_name,
-                    const int* op_id) {
+                    int op_id) {
   auto* d = unwrap(d_);
 
   auto* isolate = d->isolate_;
@@ -260,8 +260,11 @@ void deno_set_op_id(Deno* d_, const char* op_namespace, const char* op_name,
   v8::Local<v8::Object> deno_object = v8::Local<v8::Object>::Cast(
       global->Get(context, deno::v8_str("Deno")).ToLocalChecked());
 
+  v8::Local<v8::Object> core_object = v8::Local<v8::Object>::Cast(
+      deno_object->Get(context, deno::v8_str("core")).ToLocalChecked());
+
   v8::Local<v8::Object> op_ids_object = v8::Local<v8::Object>::Cast(
-      deno_object->Get(context, deno::v8_str("opIds")).ToLocalChecked());
+      core_object->Get(context, deno::v8_str("opIds")).ToLocalChecked());
 
   if (op_ids_object->Has(context, deno::v8_str(op_namespace)).FromJust()) {
     v8::Local<v8::Value> op_ns_value =

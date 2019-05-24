@@ -11,14 +11,16 @@ use crate::resources::ResourceId;
 use crate::worker::Worker;
 use deno::Buf;
 use deno::Op;
+use deno::OpId;
 use deno::PinnedBuf;
+use deno_lib_bindings::dispatch::OpDispatchFn;
 use futures::future::Shared;
 use std;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -66,6 +68,8 @@ pub struct State {
   pub dispatch_selector: ops::OpSelector,
   /// Reference to global progress bar.
   pub progress: Progress,
+  pub binding_next_op_id: AtomicU32,
+  pub binding_op_id_map: Mutex<HashMap<OpId, OpDispatchFn>>,
 }
 
 impl Clone for ThreadSafeState {
@@ -157,6 +161,8 @@ impl ThreadSafeState {
       resource,
       dispatch_selector,
       progress,
+      binding_next_op_id: AtomicU32::new(0),
+      binding_op_id_map: Mutex::new(HashMap::new()),
     }))
   }
 

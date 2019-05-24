@@ -185,6 +185,8 @@ function getExtension(
       return fileName.endsWith(".d.ts") ? ts.Extension.Dts : ts.Extension.Ts;
     case msg.MediaType.Json:
       return ts.Extension.Json;
+    case msg.MediaType.Toml:
+      return ts.Extension.Ts;
     case msg.MediaType.Unknown:
     default:
       throw TypeError("Cannot resolve extension.");
@@ -415,7 +417,8 @@ class Compiler implements ts.LanguageServiceHost, ts.FormatDiagnosticsHost {
       const service = this._service;
       assert(
         mediaType === msg.MediaType.TypeScript ||
-          mediaType === msg.MediaType.JavaScript
+          mediaType === msg.MediaType.JavaScript ||
+          mediaType === msg.MediaType.Toml
       );
       const output = service.getEmitOutput(fileName);
 

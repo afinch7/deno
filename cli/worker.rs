@@ -1,4 +1,5 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+use crate::bindings::DenoInitContext;
 use crate::compiler::compile_async;
 use crate::compiler::ModuleMetaData;
 use crate::errors::DenoError;
@@ -10,6 +11,7 @@ use crate::state::ThreadSafeState;
 use crate::tokio_util;
 use deno;
 use deno::Config;
+use deno::CustomOpId;
 use deno::JSError;
 use deno::Loader;
 use deno::StartupData;
@@ -182,11 +184,12 @@ impl Loader for Worker {
         .map_err(|err| {
           eprintln!("{}", err);
           err
-        }).map(|module_meta_data| deno::SourceCodeInfo {
+        }).map(|result| deno::SourceCodeInfo {
           // Real module name, might be different from initial URL
           // due to redirections.
-          code: module_meta_data.js_source(),
-          module_name: module_meta_data.module_name,
+          code: result.0.js_source(),
+          module_name: result.0.module_name,
+          custom_op_ids: result.1,
         }),
     )
   }
@@ -211,17 +214,20 @@ fn fetch_module_meta_data_and_maybe_compile_async(
   state: &ThreadSafeState,
   specifier: &str,
   referrer: &str,
-) -> impl Future<Item = ModuleMetaData, Error = DenoError> {
+) -> impl Future<Item = (ModuleMetaData, Option<Vec<CustomOpId>>), Error = DenoError>
+{
   let use_cache = !state.flags.reload;
   let no_fetch = state.flags.no_fetch;
   let state_ = state.clone();
+  let state__ = state.clone();
   let specifier = specifier.to_string();
   let referrer = referrer.to_string();
   state
     .dir
     .fetch_module_meta_data_async(&specifier, &referrer, use_cache, no_fetch)
     .and_then(move |out| {
-      if out.media_type == msg::MediaType::TypeScript
+      if (out.media_type == msg::MediaType::TypeScript
+        || out.media_type == msg::MediaType::Toml)
         && !out.has_output_code_and_source_map()
       {
         debug!(">>>>> compile_sync START");
@@ -240,6 +246,21 @@ fn fetch_module_meta_data_and_maybe_compile_async(
       } else {
         Either::B(futures::future::ok(out))
       }
+    }).and_then(move |module_meta_data| {
+      match &module_meta_data.maybe_binding_plugin {
+        Some(plugin) => {
+          let init_context =
+            DenoInitContext::new(state__, plugin.name().to_string());
+          if let Err(e) = plugin.init(&init_context) {
+            return futures::future::err(DenoError::from(e));
+          }
+          let custom_op_ids =
+            init_context.custom_op_ids.lock().unwrap().clone();
+          return futures::future::ok((module_meta_data, Some(custom_op_ids)));
+        }
+        None => {}
+      };
+      futures::future::ok((module_meta_data, None))
     })
 }
 
@@ -247,7 +268,7 @@ pub fn fetch_module_meta_data_and_maybe_compile(
   state: &ThreadSafeState,
   specifier: &str,
   referrer: &str,
-) -> Result<ModuleMetaData, DenoError> {
+) -> Result<(ModuleMetaData, Option<Vec<CustomOpId>>), DenoError> {
   tokio_util::block_on(fetch_module_meta_data_and_maybe_compile_async(
     state, specifier, referrer,
   ))

@@ -3,6 +3,7 @@ use crate::js_errors::JSErrorColor;
 pub use crate::msg::ErrorKind;
 use crate::resolve_addr::ResolveAddrError;
 use deno::JSError;
+use deno_lib_bindings;
 use hyper;
 #[cfg(unix)]
 use nix::{errno::Errno, Error as UnixError};
@@ -24,6 +25,7 @@ enum Repr {
   IoErr(io::Error),
   UrlErr(url::ParseError),
   HyperErr(hyper::Error),
+  BindingErr(deno_lib_bindings::errors::BindingError),
 }
 
 pub fn new(kind: ErrorKind, msg: String) -> DenoError {
@@ -92,6 +94,7 @@ impl DenoError {
           ErrorKind::HttpOther
         }
       }
+      Repr::BindingErr(ref _err) => ErrorKind::BindingError,
     }
   }
 }
@@ -103,6 +106,7 @@ impl fmt::Display for DenoError {
       Repr::IoErr(ref err) => err.fmt(f),
       Repr::UrlErr(ref err) => err.fmt(f),
       Repr::HyperErr(ref err) => err.fmt(f),
+      Repr::BindingErr(ref err) => err.fmt(f),
     }
   }
 }
@@ -114,6 +118,7 @@ impl std::error::Error for DenoError {
       Repr::IoErr(ref err) => err.description(),
       Repr::UrlErr(ref err) => err.description(),
       Repr::HyperErr(ref err) => err.description(),
+      Repr::BindingErr(ref err) => err.description(),
     }
   }
 
@@ -123,6 +128,7 @@ impl std::error::Error for DenoError {
       Repr::IoErr(ref err) => Some(err),
       Repr::UrlErr(ref err) => Some(err),
       Repr::HyperErr(ref err) => Some(err),
+      Repr::BindingErr(ref err) => Some(err),
     }
   }
 }
@@ -150,6 +156,15 @@ impl From<hyper::Error> for DenoError {
   fn from(err: hyper::Error) -> Self {
     Self {
       repr: Repr::HyperErr(err),
+    }
+  }
+}
+
+impl From<deno_lib_bindings::errors::BindingError> for DenoError {
+  #[inline]
+  fn from(err: deno_lib_bindings::errors::BindingError) -> Self {
+    Self {
+      repr: Repr::BindingErr(err),
     }
   }
 }

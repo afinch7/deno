@@ -21,10 +21,10 @@ impl BindingPlugin for TestBindingPlugin {
         Ok(())
     }
 
-    fn get_main_module_source(&self) -> BindingResult<String> {
+    fn es_module_source(&self) -> String {
         let source_bytes = include_bytes!("./main.ts");
 
-        Ok(std::str::from_utf8(&source_bytes[..]).unwrap().to_string())
+        std::str::from_utf8(&source_bytes[..]).unwrap().to_string()
     }
 }
 

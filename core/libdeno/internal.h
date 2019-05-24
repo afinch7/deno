@@ -139,8 +139,8 @@ static inline v8::Local<v8::String> v8_str(const char* x) {
       .ToLocalChecked();
 }
 
-static inline v8::Local<v8::Integer> v8_int(const int* x) {
-  return v8::Integer::New(v8::Isolate::GetCurrent(), *x);
+static inline v8::Local<v8::Integer> v8_int(int x) {
+  return v8::Integer::New(v8::Isolate::GetCurrent(), x);
 }
 
 void Print(const v8::FunctionCallbackInfo<v8::Value>& args);

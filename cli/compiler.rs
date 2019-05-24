@@ -1,4 +1,5 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+use crate::bindings::BindingLoadResult;
 use crate::js_errors;
 use crate::js_errors::JSErrorColor;
 use crate::msg;
@@ -21,6 +22,7 @@ use std::collections::HashMap;
 use std::str;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::runtime::Runtime;
 
@@ -51,6 +53,7 @@ pub struct ModuleMetaData {
   pub maybe_output_code: Option<Vec<u8>>,
   pub maybe_source_map_filename: Option<String>,
   pub maybe_source_map: Option<Vec<u8>>,
+  pub maybe_binding_plugin: Option<Arc<BindingLoadResult>>,
 }
 
 impl ModuleMetaData {
@@ -309,6 +312,7 @@ mod tests {
         maybe_output_code: None,
         maybe_source_map_filename: None,
         maybe_source_map: None,
+        maybe_binding_plugin: None,
       };
 
       out = compile_sync(ThreadSafeState::mock(), specifier, &referrer, &out)

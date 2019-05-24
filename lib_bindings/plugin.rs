@@ -2,9 +2,7 @@
 use crate::errors::{BindingResult};
 use crate::dispatch::{OpDispatchFn};
 use std::any::Any;
-
-/// Type for uniquie identifyer of native binding ops
-pub type OpId = u32;
+use std::fmt::Debug;
 
 /// Initlization context with various init specific bindings
 pub trait BindingInitContext {
@@ -18,13 +16,15 @@ pub trait BindingInitContext {
     ) -> BindingResult<()>;
 }
 
-pub trait BindingPlugin: Any + Send + Sync {
+// Plugin system based off of https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html
+
+pub trait BindingPlugin: Any + Send + Sync + Debug {
     /// Get a name for debug usage.
     fn name(&self) -> &'static str;
     /// Allow plugin to perform init by passing it a init context.
     fn init(&self, context: &BindingInitContext) -> BindingResult<()>;
     /// Get source for binding module
-    fn get_main_module_source(&self) -> BindingResult<String>;
+    fn es_module_source(&self) -> String;
 }
 
 #[macro_export]

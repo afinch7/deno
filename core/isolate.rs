@@ -353,7 +353,7 @@ impl Isolate {
         self.libdeno_isolate,
         op_namespace_ptr,
         op_name_ptr,
-        op_id as *const libc::c_int,
+        op_id as libc::c_int,
       )
     }
   }
@@ -1008,5 +1008,23 @@ pub mod tests {
     let startup_data = StartupData::LibdenoSnapshot(snapshot);
     let mut isolate2 = Isolate::new(startup_data, Config::default());
     js_check(isolate2.execute("check.js", "if (a != 3) throw Error('x')"));
+  }
+
+  #[test]
+  fn test_op_ids() {
+    let (mut isolate, _) = setup(Mode::OverflowReqSync);
+    isolate.set_op_id("test_namespace", "testOp", 0);
+    isolate.set_op_id("test_namespace", "testOp2", 3);
+    isolate.set_op_id("test_namespace2", "testOp2", 1);
+    isolate.set_op_id("test_namespace2", "testOp", 2);
+    js_check(isolate.execute(
+      "test_op_ids.js",
+      r#"
+      if (Deno.core.opIds.test_namespace.testOp != 0) throw Error('x');
+      if (Deno.core.opIds.test_namespace2.testOp != 2) throw Error('x');
+      if (Deno.core.opIds.test_namespace2.testOp2 != 1) throw Error('x');
+      if (Deno.core.opIds.test_namespace.testOp2 != 3) throw Error('x');
+      "#,
+    ));
   }
 }
