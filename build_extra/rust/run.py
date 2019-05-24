@@ -25,6 +25,8 @@ else:
 env["GN_OUT_DIR"] = os.path.abspath(".")
 assert os.path.isdir(env["GN_OUT_DIR"])
 
+env["OUT_DIR"] = os.path.abspath("gen")
+
 # Set the CARGO_PKG_VERSION env variable if provided as an argument
 # When building with Cargo this variable is set automatically
 args = sys.argv[1:]
