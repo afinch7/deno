@@ -6,7 +6,7 @@ use deno::OpId;
 use deno_lib_bindings::dispatch::{BindingDispatchContext, OpDispatchFn};
 use deno_lib_bindings::errors::BindingResult;
 use deno_lib_bindings::plugin::{BindingInitContext, BindingPlugin};
-use libloading::{Library, Symbol};
+use dlopen::symbor::Library;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
@@ -19,8 +19,7 @@ impl DenoDispatchContext {
   }
 }
 
-impl BindingDispatchContext for DenoDispatchContext {
-}
+impl BindingDispatchContext for DenoDispatchContext {}
 
 pub struct DenoInitContext {
   state: ThreadSafeState,
@@ -66,13 +65,11 @@ lazy_static! {
 pub unsafe fn load_binding_plugin<P: Into<PathBuf>>(
   lib_path: P,
 ) -> DenoResult<BindingLoadResult> {
-  type PluginCreate = unsafe fn() -> *mut BindingPlugin;
-
   let lib_path: PathBuf = lib_path.into();
 
   debug!("LOADING NATIVE BINDING LIB: {:#?}", lib_path);
 
-  let lib = Library::new(lib_path).unwrap();
+  let lib = Library::open(lib_path).unwrap();
 
   // We place the loaded lib into a vec so that it's contents
   // remain statically located in memory.
@@ -81,10 +78,11 @@ pub unsafe fn load_binding_plugin<P: Into<PathBuf>>(
 
   let lib = lib_list.last().unwrap();
 
-  let constructor: Symbol<PluginCreate> =
-    lib.get(b"_binding_plugin_create").unwrap();
-  let boxed_raw = constructor();
-  let plugin = Box::from_raw(boxed_raw);
+  let constructor = lib
+    .symbol::<unsafe extern "C" fn() -> *mut BindingPlugin>(
+      "_binding_plugin_create",
+    ).unwrap();
+  let plugin = Box::from_raw(constructor());
 
   println!("Loaded plugin: {}", plugin.name());
 
@@ -100,6 +98,7 @@ mod tests {
   };
   use deno_lib_bindings::errors::BindingResult;
   use deno_lib_bindings::plugin::BindingInitContext;
+  use dlopen::utils::platform_file_name;
   use std::collections::HashMap;
   use std::env;
   use std::path::Path;
@@ -170,10 +169,14 @@ mod tests {
   #[test]
   fn test_loader() {
     println!("CWD {:#?}", env::current_dir().unwrap());
-    println!("PLUGIN PATH {:#?}", concat!(env!("GN_OUT_DIR"), "/rust_crates/libtest_binding_plugin.so"));
-    let plugin_path = Path::new(concat!(env!("GN_OUT_DIR"), "/rust_crates/libtest_binding_plugin.so"))
-      .canonicalize()
-      .unwrap();
+    let lib_path = format!(
+      "{}{}{}",
+      env!("GN_OUT_DIR"),
+      "/",
+      platform_file_name("test_binding_plugin").to_str().unwrap()
+    );
+    println!("PLUGIN PATH {:#?}", lib_path);
+    let plugin_path = Path::new(&lib_path).canonicalize().unwrap();
     println!("PLUGIN PATH {:#?}", plugin_path);
     let plugin = unsafe { load_binding_plugin(plugin_path).unwrap() };
 
@@ -193,8 +196,7 @@ mod tests {
     let op_id_table = OP_ID_TABLE.lock().unwrap();
     let op_dispatch = op_id_table.get(&next_op_id);
     assert!(op_dispatch.is_some());
-    let result_future =
-      op_dispatch.unwrap()(&dispatch_ctx, None);
+    let result_future = op_dispatch.unwrap()(&dispatch_ctx, None);
     let result = result_future.wait();
     assert!(result.is_ok());
     let result_buf = result.unwrap();

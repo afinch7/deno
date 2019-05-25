@@ -1,7 +1,7 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use atty;
-use crate::bindings;
 use crate::ansi;
+use crate::bindings;
 use crate::compiler::get_compiler_config;
 use crate::deno_dir::resolve_path;
 use crate::dispatch_minimal::dispatch_minimal;
@@ -2193,29 +2193,29 @@ fn op_custom_op(
   match op_dispatch_list.get(&op_id) {
     Some(op_dispatch) => {
       let dispatch_context = bindings::DenoDispatchContext::new();
-      Box::new(op_dispatch(&dispatch_context, data).map_err(DenoError::from).and_then(move |buf| {
-        let builder = &mut FlatBufferBuilder::new();
+      Box::new(
+        op_dispatch(&dispatch_context, data)
+          .map_err(DenoError::from)
+          .and_then(move |buf| {
+            let builder = &mut FlatBufferBuilder::new();
 
-        let data = Some(builder.create_vector(&buf));
+            let data = Some(builder.create_vector(&buf));
 
-        let msg_inner = msg::CustomOpRes::create(
-          builder,
-          &msg::CustomOpResArgs { data },
-        );
+            let msg_inner =
+              msg::CustomOpRes::create(builder, &msg::CustomOpResArgs { data });
 
-        Ok(serialize_response(
-          cmd_id,
-          builder,
-          msg::BaseArgs {
-            inner: Some(msg_inner.as_union_value()),
-            inner_type: msg::Any::CustomOpRes,
-            ..Default::default()
-          },
-        ))
-      }))
-    },
-    None => {
-      odd_future(errors::binding_op_id_not_found())
+            Ok(serialize_response(
+              cmd_id,
+              builder,
+              msg::BaseArgs {
+                inner: Some(msg_inner.as_union_value()),
+                inner_type: msg::Any::CustomOpRes,
+                ..Default::default()
+              },
+            ))
+          }),
+      )
     }
+    None => odd_future(errors::binding_op_id_not_found()),
   }
 }

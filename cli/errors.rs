@@ -245,7 +245,10 @@ pub fn no_buffer_specified() -> DenoError {
 }
 
 pub fn binding_op_id_not_found() -> DenoError {
-  new(ErrorKind::BindingOpIdNotFound, String::from("Binding custom op id not found."))
+  new(
+    ErrorKind::BindingOpIdNotFound,
+    String::from("Binding custom op id not found."),
+  )
 }
 
 #[derive(Debug)]

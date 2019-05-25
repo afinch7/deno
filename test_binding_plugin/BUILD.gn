@@ -14,25 +14,30 @@ group("default") {
   ]
 }
 
-main_extern = [
-  {
-    label = "../core:deno"
-    crate_name = "deno"
-    crate_type = "rlib"
-  },
-  {
-    label = "../lib_bindings:deno_lib_bindings"
-    crate_name = "deno_lib_bindings"
-    crate_type = "rlib"
-  },
-]
+if (is_linux) {
+  shared_lib_prefix = "lib"
+  shared_lib_suffix = ".so"
+} else if (is_mac) {
+  shared_lib_prefix = "lib"
+  shared_lib_suffix = ".dylib"
+} else if (is_win) {
+  shared_lib_prefix = ""
+  shared_lib_suffix = ".dll"
+} else {
+  assert(false, "Unsupported platform")
+}
 
-main_extern_rlib = [
-  "futures",
-]
-
-rust_dylib("test_binding_plugin") {
-  source_root = "lib.rs"
-  extern = main_extern
-  extern_rlib = main_extern_rlib
+cargo_build("test_binding_plugin") {
+  package_name = "test_binding_plugin"
+  outputs = [
+    "$root_build_dir/$shared_lib_prefix" + "test_binding_plugin.$shared_lib_suffix",
+  ]
+  inputs = [
+    "Cargo.toml",
+    "lib.rs",
+    "main.ts",
+  ]
+  deps = [
+    "../core:deno",
+  ]
 }

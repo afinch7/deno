@@ -25,7 +25,7 @@ main_extern = [
   },
 ]
 main_extern_rlib = [
-  "libloading",
+  "dlopen",
   "ansi_term",
   "atty",
   "clap",
