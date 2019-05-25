@@ -1,0 +1,38 @@
+# Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+import("//build/toolchain/cc_wrapper.gni")
+import("//build_extra/flatbuffers/flatbuffer.gni")
+import("//build_extra/flatbuffers/rust/rust_flatbuffer.gni")
+import("//build_extra/rust/rust.gni")
+import("//third_party/v8/gni/v8.gni")
+import("//third_party/v8/snapshot_toolchain.gni")
+import("../deno.gni")
+
+group("default") {
+  testonly = true
+  deps = [
+    ":test_binding_plugin",
+  ]
+}
+
+main_extern = [
+  {
+    label = "../core:deno"
+    crate_name = "deno"
+    crate_type = "rlib"
+  },
+  {
+    label = "../lib_bindings:deno_lib_bindings"
+    crate_name = "deno_lib_bindings"
+    crate_type = "rlib"
+  },
+]
+
+main_extern_rlib = [
+  "futures",
+]
+
+rust_dylib("test_binding_plugin") {
+  source_root = "lib.rs"
+  extern = main_extern
+  extern_rlib = main_extern_rlib
+}

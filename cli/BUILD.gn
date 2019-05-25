@@ -26,7 +26,6 @@ main_extern = [
 ]
 main_extern_rlib = [
   "libloading",
-  "cargo",
   "ansi_term",
   "atty",
   "clap",

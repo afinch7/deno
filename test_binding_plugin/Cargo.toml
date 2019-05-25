@@ -10,6 +10,7 @@ path = "lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-deno_lib_bindings = { path = "../" }
+# deno = { path = "../core" }
+deno_lib_bindings = { path = "../lib_bindings" }
 
 futures = "0.1.27"

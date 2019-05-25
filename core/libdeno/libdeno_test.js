@@ -197,6 +197,6 @@ global.LibDenoEvalContextError = () => {
 };
 
 global.CheckOpId = () => {
-  assert(Deno.opIds.testNamespace.testOp === 0);
-  assert(Deno.opIds.testNamespace.testOp2 === 1);
+  assert(Deno.core.opIds.testNamespace.testOp === 0);
+  assert(Deno.core.opIds.testNamespace.testOp2 === 1);
 };

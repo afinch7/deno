@@ -14,5 +14,5 @@ pub type OpWithError = dyn Future<Item = Buf, Error = BindingError> + Send;
 /// Dispatch funciton type
 /// base is a placeholder value for now not sure what we want to use there
 pub type OpDispatchFn =
-  fn(state: &BindingDispatchContext, base: &str, data: Option<PinnedBuf>)
+  fn(state: &BindingDispatchContext, data: Option<PinnedBuf>)
     -> Box<OpWithError>;

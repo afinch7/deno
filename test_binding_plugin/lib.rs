@@ -30,10 +30,8 @@ impl BindingPlugin for TestBindingPlugin {
 
 pub fn op_test_op(
   _state: &BindingDispatchContext,
-  base: &str,
   _data: Option<PinnedBuf>,
 ) -> Box<OpWithError> {
-    println!("BASE: {}", base);
     let result = b"test";
     let result_box: Buf = Box::new(*result);
     Box::new(futures::future::ok(result_box))

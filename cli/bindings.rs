@@ -1,28 +1,26 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-use cargo::core::compiler::CompileMode;
-use cargo::core::manifest::EitherManifest;
-use cargo::core::shell::Shell;
-use cargo::core::SourceId;
-use cargo::core::Workspace;
-use cargo::ops::compile;
-use cargo::ops::CompileOptions;
-use cargo::util::config::Config;
-use cargo::util::homedir;
-use cargo::util::toml::read_manifest;
-use crate::errors;
 use crate::errors::DenoResult;
-use crate::msg;
 use crate::state::ThreadSafeState;
 use deno::CustomOpId;
 use deno::OpId;
-use deno_lib_bindings::dispatch::OpDispatchFn;
+use deno_lib_bindings::dispatch::{BindingDispatchContext, OpDispatchFn};
 use deno_lib_bindings::errors::BindingResult;
 use deno_lib_bindings::plugin::{BindingInitContext, BindingPlugin};
-use libloading::{Library, Result, Symbol};
-use std::io::Write;
+use libloading::{Library, Symbol};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
+
+pub struct DenoDispatchContext;
+
+impl DenoDispatchContext {
+  pub fn new() -> Self {
+    Self {}
+  }
+}
+
+impl BindingDispatchContext for DenoDispatchContext {
+}
 
 pub struct DenoInitContext {
   state: ThreadSafeState,
@@ -49,29 +47,10 @@ impl BindingInitContext for DenoInitContext {
   ) -> BindingResult<()> {
     let next_op_id: OpId =
       self.state.binding_next_op_id.fetch_add(1, Ordering::SeqCst);
-    let mut binding_id_map = self.state.binding_op_id_map.lock().unwrap();
+    let mut binding_id_map = self.state.binding_op_id_map.write().unwrap();
     binding_id_map.insert(next_op_id.clone(), dispatch);
     let mut new_op_id_list = self.custom_op_ids.lock().unwrap();
     new_op_id_list.push((self.op_namespace.clone(), name, next_op_id));
-    Ok(())
-  }
-}
-
-struct CustomWriter;
-
-impl CustomWriter {
-  pub fn new() -> Self {
-    CustomWriter {}
-  }
-}
-
-// TODO(afinch7) make this print to debug instead of just eating the buffers
-impl Write for CustomWriter {
-  fn write(&mut self, buf: &[u8]) -> Result<usize> {
-    Ok(buf.len())
-  }
-
-  fn flush(&mut self) -> Result<()> {
     Ok(())
   }
 }
@@ -85,70 +64,31 @@ lazy_static! {
 // Plugin system based off of https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html
 
 pub unsafe fn load_binding_plugin<P: Into<PathBuf>>(
-  manifest_path: P,
+  lib_path: P,
 ) -> DenoResult<BindingLoadResult> {
   type PluginCreate = unsafe fn() -> *mut BindingPlugin;
 
-  let manifest_path: PathBuf = manifest_path.into();
-  let mut plugin_wd = manifest_path.clone();
-  plugin_wd.pop();
+  let lib_path: PathBuf = lib_path.into();
 
-  let writer = CustomWriter::new();
-  let shell = Shell::from_write(Box::new(writer));
-  let home_dir = homedir(&plugin_wd).unwrap();
+  debug!("LOADING NATIVE BINDING LIB: {:#?}", lib_path);
 
-  let config = Config::new(shell, plugin_wd.clone(), home_dir);
-  let manifest = read_manifest(
-    &manifest_path,
-    SourceId::for_directory(&plugin_wd).unwrap(),
-    &config,
-  ).unwrap();
-  let manifest = match manifest.0 {
-    EitherManifest::Real(man) => man,
-    _ => unimplemented!(),
-  };
-  let ws = Workspace::new(&manifest_path, &config).unwrap();
+  let lib = Library::new(lib_path).unwrap();
 
-  let mut compile_opts =
-    CompileOptions::new(&ws.config(), CompileMode::Build).unwrap();
-  compile_opts.build_config.release = true;
+  // We place the loaded lib into a vec so that it's contents
+  // remain statically located in memory.
+  let mut lib_list = LIBRARY_LIST.lock().unwrap();
+  lib_list.push(lib);
 
-  let compile_result = compile(&ws, &compile_opts).unwrap();
+  let lib = lib_list.last().unwrap();
 
-  for target in manifest.targets() {
-    if target.is_lib() {
-      if target.is_cdylib() {
-        let lib_name = format!("lib{}.so", target.crate_name());
-        let lib_path = compile_result.root_output.join(lib_name);
-        println!("LIB PATH: {:#?}", lib_path);
+  let constructor: Symbol<PluginCreate> =
+    lib.get(b"_binding_plugin_create").unwrap();
+  let boxed_raw = constructor();
+  let plugin = Box::from_raw(boxed_raw);
 
-        let lib = Library::new(lib_path).unwrap();
+  println!("Loaded plugin: {}", plugin.name());
 
-        // We place the loaded lib into a vec so that it's contents
-        // remain statically located in memory.
-        let mut lib_list = LIBRARY_LIST.lock().unwrap();
-        lib_list.push(lib);
-
-        let lib = lib_list.last().unwrap();
-
-        let constructor: Symbol<PluginCreate> =
-          lib.get(b"_binding_plugin_create").unwrap();
-        let boxed_raw = constructor();
-        let plugin = Box::from_raw(boxed_raw);
-
-        println!("Loaded plugin: {}", plugin.name());
-
-        return Ok(plugin);
-      }
-    }
-  }
-  Err(errors::new(
-    msg::ErrorKind::NotFound,
-    format!(
-      "Valid library in {:#?} could not be found to load.",
-      manifest_path
-    ),
-  ))
+  return Ok(plugin);
 }
 
 #[cfg(test)]
@@ -162,6 +102,7 @@ mod tests {
   use deno_lib_bindings::plugin::BindingInitContext;
   use std::collections::HashMap;
   use std::env;
+  use std::path::Path;
   use std::sync::atomic::AtomicU32;
   use std::sync::atomic::Ordering;
   use std::sync::Mutex;
@@ -229,9 +170,8 @@ mod tests {
   #[test]
   fn test_loader() {
     println!("CWD {:#?}", env::current_dir().unwrap());
-    let plugin_path = env::current_dir()
-      .unwrap()
-      .join("../lib_bindings/test_binding_plugin/Cargo.toml")
+    println!("PLUGIN PATH {:#?}", concat!(env!("GN_OUT_DIR"), "/rust_crates/libtest_binding_plugin.so"));
+    let plugin_path = Path::new(concat!(env!("GN_OUT_DIR"), "/rust_crates/libtest_binding_plugin.so"))
       .canonicalize()
       .unwrap();
     println!("PLUGIN PATH {:#?}", plugin_path);
@@ -254,7 +194,7 @@ mod tests {
     let op_dispatch = op_id_table.get(&next_op_id);
     assert!(op_dispatch.is_some());
     let result_future =
-      op_dispatch.unwrap()(&dispatch_ctx, "some disptach text", None);
+      op_dispatch.unwrap()(&dispatch_ctx, None);
     let result = result_future.wait();
     assert!(result.is_ok());
     let result_buf = result.unwrap();

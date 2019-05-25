@@ -1,5 +1,6 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use atty;
+use crate::bindings;
 use crate::ansi;
 use crate::compiler::get_compiler_config;
 use crate::deno_dir::resolve_path;
@@ -234,6 +235,7 @@ pub fn op_selector_std(inner_type: msg::Any) -> Option<OpCreator> {
     msg::Any::HostGetMessage => Some(op_host_get_message),
     msg::Any::HostPostMessage => Some(op_host_post_message),
     msg::Any::Write => Some(op_write),
+    msg::Any::CustomOp => Some(op_custom_op),
 
     // TODO(ry) split these out so that only the appropriate Workers can access
     // them.
@@ -2176,4 +2178,44 @@ fn op_get_random_values(
 ) -> Box<OpWithError> {
   thread_rng().fill(&mut data.unwrap()[..]);
   Box::new(ok_future(empty_buf()))
+}
+
+fn op_custom_op(
+  state: &ThreadSafeState,
+  base: &msg::Base<'_>,
+  data: Option<PinnedBuf>,
+) -> Box<OpWithError> {
+  let cmd_id = base.cmd_id();
+  let inner = base.inner_as_custom_op().unwrap();
+  let op_id = inner.op_id();
+
+  let op_dispatch_list = state.binding_op_id_map.read().unwrap();
+  match op_dispatch_list.get(&op_id) {
+    Some(op_dispatch) => {
+      let dispatch_context = bindings::DenoDispatchContext::new();
+      Box::new(op_dispatch(&dispatch_context, data).map_err(DenoError::from).and_then(move |buf| {
+        let builder = &mut FlatBufferBuilder::new();
+
+        let data = Some(builder.create_vector(&buf));
+
+        let msg_inner = msg::CustomOpRes::create(
+          builder,
+          &msg::CustomOpResArgs { data },
+        );
+
+        Ok(serialize_response(
+          cmd_id,
+          builder,
+          msg::BaseArgs {
+            inner: Some(msg_inner.as_union_value()),
+            inner_type: msg::Any::CustomOpRes,
+            ..Default::default()
+          },
+        ))
+      }))
+    },
+    None => {
+      odd_future(errors::binding_op_id_not_found())
+    }
+  }
 }

@@ -7,6 +7,8 @@ union Any {
   CompilerConfig,
   CompilerConfigRes,
   CopyFile,
+  CustomOp,
+  CustomOpRes,
   Cwd,
   CwdRes,
   Dial,
@@ -139,7 +141,8 @@ enum ErrorKind: byte {
   UnixError,
 
   // binding errors
-  BindingError
+  BindingError,
+  BindingOpIdNotFound,
 }
 
 table Cwd {}
@@ -584,5 +587,13 @@ table Seek {
 }
 
 table GetRandomValues {}
+
+table CustomOp {
+  op_id: uint32;
+}
+
+table CustomOpRes {
+  data: [ubyte];
+}
 
 root_type Base;

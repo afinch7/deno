@@ -244,6 +244,10 @@ pub fn no_buffer_specified() -> DenoError {
   new(ErrorKind::InvalidInput, String::from("no buffer specified"))
 }
 
+pub fn binding_op_id_not_found() -> DenoError {
+  new(ErrorKind::BindingOpIdNotFound, String::from("Binding custom op id not found."))
+}
+
 #[derive(Debug)]
 pub enum RustOrJsError {
   Rust(DenoError),

@@ -23,6 +23,7 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::RwLock;
 use std::time::Instant;
 use tokio::sync::mpsc as async_mpsc;
 
@@ -69,7 +70,7 @@ pub struct State {
   /// Reference to global progress bar.
   pub progress: Progress,
   pub binding_next_op_id: AtomicU32,
-  pub binding_op_id_map: Mutex<HashMap<OpId, OpDispatchFn>>,
+  pub binding_op_id_map: RwLock<HashMap<OpId, OpDispatchFn>>,
 }
 
 impl Clone for ThreadSafeState {
@@ -162,7 +163,7 @@ impl ThreadSafeState {
       dispatch_selector,
       progress,
       binding_next_op_id: AtomicU32::new(0),
-      binding_op_id_map: Mutex::new(HashMap::new()),
+      binding_op_id_map: RwLock::new(HashMap::new()),
     }))
   }
 
