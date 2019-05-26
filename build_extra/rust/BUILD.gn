@@ -280,9 +280,7 @@ rust_rlib("dlopen") {
         crate_version = "0.2.8"
       },
     ]
-    extern_rlib += [
-      "kernel32",
-    ]
+    extern_rlib += [ "kernel32" ]
   }
 }
 
