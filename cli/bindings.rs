@@ -47,7 +47,7 @@ impl BindingInitContext for DenoInitContext {
     let next_op_id: OpId =
       self.state.binding_next_op_id.fetch_add(1, Ordering::SeqCst);
     let mut binding_id_map = self.state.binding_op_id_map.write().unwrap();
-    binding_id_map.insert(next_op_id.clone(), dispatch);
+    binding_id_map.insert(next_op_id, dispatch);
     let mut new_op_id_list = self.custom_op_ids.lock().unwrap();
     new_op_id_list.push((self.op_namespace.clone(), name, next_op_id));
     Ok(())
@@ -86,7 +86,7 @@ pub unsafe fn load_binding_plugin<P: Into<PathBuf>>(
 
   println!("Loaded plugin: {}", plugin.name());
 
-  return Ok(plugin);
+  Ok(plugin)
 }
 
 #[cfg(test)]

@@ -32,13 +32,10 @@ pub fn op_test_op(
   _state: &BindingDispatchContext,
   data: Option<PinnedBuf>,
 ) -> Box<OpWithError> {
-    match data {
-        Some(buf) => {
-            let text = std::str::from_utf8(&buf[..]).unwrap();
-            println!("Hello from native bindings. MSG: {}", text);
-        },
-        None => {}
-    };
+    if let Some(buf) = data {
+        let text = std::str::from_utf8(&buf[..]).unwrap();
+        println!("Hello from native bindings. MSG: {}", text);
+    }
     let result = b"test";
     let result_box: Buf = Box::new(*result);
     Box::new(futures::future::ok(result_box))
