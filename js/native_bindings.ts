@@ -1,3 +1,4 @@
+// Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 import { core } from "./core";
 import { sendSync } from "./dispatch";
 import * as msg from "gen/cli/msg_generated";
