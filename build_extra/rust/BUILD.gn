@@ -272,8 +272,15 @@ rust_rlib("dlopen") {
     extern_rlib += [ "libc" ]
   }
   if (is_win) {
+    extern += [
+      {
+        label = ":winapi-0.2.8"
+        crate_name = "winapi"
+        crate_type = "rlib"
+        crate_version = "0.2.8"
+      },
+    ]
     extern_rlib += [
-      "winapi",
       "kernel32",
     ]
   }
