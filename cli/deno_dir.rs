@@ -530,7 +530,7 @@ fn map_file_extension(path: &Path) -> msg::MediaType {
       Some("js") => msg::MediaType::JavaScript,
       Some("mjs") => msg::MediaType::JavaScript,
       Some("json") => msg::MediaType::Json,
-      Some("toml") => msg::MediaType::Toml,
+      Some("so") | Some("dylib") | Some("dll") => msg::MediaType::Dylib,
       _ => msg::MediaType::Unknown,
     },
   }
@@ -760,22 +760,13 @@ fn fetch_local_source(
   }
   // No redirect needed or end of redirects.
   // We can try read the file
-  let source_code = match fs::read(p) {
-    Err(e) => {
-      if e.kind() == std::io::ErrorKind::NotFound {
-        return Ok(None);
-      } else {
-        return Err(e.into());
-      }
-    }
-    Ok(c) => c,
-  };
   let media_type = map_content_type(
     &p,
     source_code_headers.mime_type.as_ref().map(String::as_str),
   );
+  
   let (maybe_binding_plugin, source_code) = match media_type {
-    msg::MediaType::Toml => {
+    msg::MediaType::Dylib => {
       let plugin = unsafe {
         match bindings::load_binding_plugin(p) {
           Ok(v) => v,
@@ -785,8 +776,21 @@ fn fetch_local_source(
       let source_code = plugin.es_module_source();
       (Some(Arc::new(plugin)), source_code.as_bytes().to_vec())
     }
-    _ => (None, source_code),
+    _ => {
+      let source_code = match fs::read(p) {
+        Err(e) => {
+          if e.kind() == std::io::ErrorKind::NotFound {
+            return Ok(None);
+          } else {
+            return Err(e.into());
+          }
+        }
+        Ok(c) => c,
+      };
+      (None, source_code)
+    },
   };
+  
   Ok(Some(ModuleMetaData {
     module_name: module_name.to_string(),
     module_redirect_source_name: module_initial_source_name,

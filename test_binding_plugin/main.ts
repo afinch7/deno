@@ -5,19 +5,26 @@ export interface TestOptions {
 }
 
 export interface TestResponse {
-    data: string;
+    data: Uint8Array;
 }
 
-function encodeTestOp(_args: TestOptions): Uint8Array {
-    // Do some encoding
-    return new Uint8Array(0);
+const textEncoder = new TextEncoder();
+
+function encodeTestOp(args: TestOptions): Uint8Array {
+    return textEncoder.encode(JSON.stringify(args));
 }
 
-function decodeTestOpResponse(_response: Uint8Array): TestResponse {
-    // Do some decoding
-    return { data: "test" };
+const textDecoder = new TextDecoder();
+
+function decodeTestOp(data: Uint8Array): any {
+    return textDecoder.decode(data);
 }
 
-export const testOp = (args: TestOptions): TestResponse => {
-    return decodeTestOpResponse(sendSync(Deno.opIds.test_binding_plugin.testOp, encodeTestOp(args)));
+export const testOp = (args: TestOptions): any => {
+    return decodeTestOp(
+        Deno.nativeBindings.sendSync(
+            Deno.nativeBindings.opIds.test_binding_plugin.testOp,
+            encodeTestOp(args),
+        ),
+    );
 }

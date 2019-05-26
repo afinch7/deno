@@ -185,7 +185,7 @@ function getExtension(
       return fileName.endsWith(".d.ts") ? ts.Extension.Dts : ts.Extension.Ts;
     case msg.MediaType.Json:
       return ts.Extension.Json;
-    case msg.MediaType.Toml:
+    case msg.MediaType.Dylib:
       return ts.Extension.Ts;
     case msg.MediaType.Unknown:
     default:
@@ -418,7 +418,7 @@ class Compiler implements ts.LanguageServiceHost, ts.FormatDiagnosticsHost {
       assert(
         mediaType === msg.MediaType.TypeScript ||
           mediaType === msg.MediaType.JavaScript ||
-          mediaType === msg.MediaType.Toml
+          mediaType === msg.MediaType.Dylib
       );
       const output = service.getEmitOutput(fileName);
 
@@ -536,6 +536,8 @@ class Compiler implements ts.LanguageServiceHost, ts.FormatDiagnosticsHost {
           return ts.ScriptKind.JS;
         case msg.MediaType.Json:
           return ts.ScriptKind.JSON;
+        case msg.MediaType.Dylib:
+          return ts.ScriptKind.TS;
         default:
           return this._options.allowJs ? ts.ScriptKind.JS : ts.ScriptKind.TS;
       }

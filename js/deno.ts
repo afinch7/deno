@@ -88,6 +88,8 @@ export const args: string[] = [];
 /** @internal */
 export { core } from "./core";
 
+export { nativeBindings } from "./native_bindings";
+
 // TODO Don't expose Console nor stringifyArgs.
 /** @internal */
 export { Console, stringifyArgs } from "./console";

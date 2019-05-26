@@ -8,6 +8,14 @@ declare interface MessageCallback {
   (msg: Uint8Array): void;
 }
 
+interface OpIdsNamespace {
+  [opName: string]: number;
+}
+
+interface OpIdsRoot {
+  [opNamespace: string]: OpIdsNamespace;
+}
+
 declare interface DenoCore {
   dispatch(
     control: Uint8Array,
@@ -22,4 +30,5 @@ declare interface DenoCore {
     reset(): void;
     shift(): Uint8Array | null;
   };
+  opIds: OpIdsRoot;
 }

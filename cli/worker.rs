@@ -227,7 +227,7 @@ fn fetch_module_meta_data_and_maybe_compile_async(
     .fetch_module_meta_data_async(&specifier, &referrer, use_cache, no_fetch)
     .and_then(move |out| {
       if (out.media_type == msg::MediaType::TypeScript
-        || out.media_type == msg::MediaType::Toml)
+        || out.media_type == msg::MediaType::Dylib)
         && !out.has_output_code_and_source_map()
       {
         debug!(">>>>> compile_sync START");

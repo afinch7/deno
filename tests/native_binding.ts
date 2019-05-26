@@ -1,3 +1,3 @@
-import { testOp } from "../lib_bindings/test_binding_plugin/Cargo.toml";
+import { testOp } from "../target/release/libtest_binding_plugin.so";
 
-console.log(testOp());
+console.log(testOp({ name: "test" }));
