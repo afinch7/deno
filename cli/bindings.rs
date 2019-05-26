@@ -127,7 +127,7 @@ mod tests {
   fn get_op_id_from_v8_mock(name: &str) -> Option<OpId> {
     let op_id_table = V8_OP_ID_MOCK_TABLE.lock().unwrap();
     match op_id_table.get(name) {
-      Some(v) => Some(v.clone()),
+      Some(v) => Some(*v),
       None => None,
     }
   }
