@@ -16,13 +16,13 @@ group("default") {
 
 if (is_linux) {
   shared_lib_prefix = "lib"
-  shared_lib_suffix = ".so"
+  shared_lib_suffix = "so"
 } else if (is_mac) {
   shared_lib_prefix = "lib"
-  shared_lib_suffix = ".dylib"
+  shared_lib_suffix = "dylib"
 } else if (is_win) {
   shared_lib_prefix = ""
-  shared_lib_suffix = ".dll"
+  shared_lib_suffix = "dll"
 } else {
   assert(false, "Unsupported platform")
 }
