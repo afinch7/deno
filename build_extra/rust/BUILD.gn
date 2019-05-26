@@ -274,7 +274,7 @@ rust_rlib("dlopen") {
   if (is_win) {
     extern_rlib += [
       "winapi",
-      "kernel32-sys",
+      "kernel32",
     ]
   }
 }
