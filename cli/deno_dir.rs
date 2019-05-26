@@ -764,7 +764,7 @@ fn fetch_local_source(
     &p,
     source_code_headers.mime_type.as_ref().map(String::as_str),
   );
-  
+
   let (maybe_binding_plugin, source_code) = match media_type {
     msg::MediaType::Dylib => {
       let plugin = unsafe {
@@ -788,9 +788,9 @@ fn fetch_local_source(
         Ok(c) => c,
       };
       (None, source_code)
-    },
+    }
   };
-  
+
   Ok(Some(ModuleMetaData {
     module_name: module_name.to_string(),
     module_redirect_source_name: module_initial_source_name,
