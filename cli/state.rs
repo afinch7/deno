@@ -1,4 +1,5 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+use crate::bindings::DenoDispatchContext;
 use crate::deno_dir;
 use crate::errors::DenoResult;
 use crate::flags;
@@ -71,6 +72,7 @@ pub struct State {
   pub progress: Progress,
   pub binding_next_op_id: AtomicU32,
   pub binding_op_id_map: RwLock<HashMap<OpId, OpDispatchFn>>,
+  pub binding_disptach_context: DenoDispatchContext,
 }
 
 impl Clone for ThreadSafeState {
@@ -164,6 +166,7 @@ impl ThreadSafeState {
       progress,
       binding_next_op_id: AtomicU32::new(0),
       binding_op_id_map: RwLock::new(HashMap::new()),
+      binding_disptach_context: DenoDispatchContext::new(),
     }))
   }
 
