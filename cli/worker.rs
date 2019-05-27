@@ -249,18 +249,22 @@ fn fetch_module_meta_data_and_maybe_compile_async(
     }).and_then(move |module_meta_data| {
       match &module_meta_data.maybe_binding_plugin {
         Some(plugin) => {
-          let init_context =
-            DenoInitContext::new(state__, plugin.name().to_string());
-          if let Err(e) = plugin.init(&init_context) {
-            return futures::future::err(DenoError::from(e));
+          match state__.check_native_bindings(&module_meta_data.module_name) {
+            Ok(_) => {
+              let init_context =
+                DenoInitContext::new(state__, plugin.name().to_string());
+              if let Err(e) = plugin.init(&init_context) {
+                return futures::future::err(DenoError::from(e));
+              }
+              let custom_op_ids =
+                init_context.custom_op_ids.lock().unwrap().clone();
+              futures::future::ok((module_meta_data, Some(custom_op_ids)))
+            }
+            Err(err) => futures::future::err(err),
           }
-          let custom_op_ids =
-            init_context.custom_op_ids.lock().unwrap().clone();
-          return futures::future::ok((module_meta_data, Some(custom_op_ids)));
         }
-        None => {}
-      };
-      futures::future::ok((module_meta_data, None))
+        None => futures::future::ok((module_meta_data, None)),
+      }
     })
 }
 

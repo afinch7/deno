@@ -136,6 +136,8 @@ pub struct DenoPermissions {
   pub allow_env: PermissionAccessor,
   pub allow_run: PermissionAccessor,
   pub allow_high_precision: PermissionAccessor,
+  // TODO(afinch7) maybe add permissions whitelist for this?
+  pub allow_native_bindings: PermissionAccessor,
   pub no_prompts: AtomicBool,
 }
 
@@ -153,6 +155,9 @@ impl DenoPermissions {
       allow_env: PermissionAccessor::from(flags.allow_env),
       allow_run: PermissionAccessor::from(flags.allow_run),
       allow_high_precision: PermissionAccessor::from(
+        flags.allow_high_precision,
+      ),
+      allow_native_bindings: PermissionAccessor::from(
         flags.allow_high_precision,
       ),
       no_prompts: AtomicBool::new(flags.no_prompts),
@@ -318,6 +323,23 @@ impl DenoPermissions {
     }
   }
 
+  pub fn check_native_bindings(&self, name: &str) -> DenoResult<()> {
+    match self.allow_native_bindings.get_state() {
+      PermissionAccessorState::Allow => Ok(()),
+      PermissionAccessorState::Ask => match self.try_permissions_prompt(
+        &format!("to load native bindings from: {}", name),
+      ) {
+        Err(e) => Err(e),
+        Ok(v) => {
+          self.allow_native_bindings.update_with_prompt_result(&v);
+          v.check()?;
+          Ok(())
+        }
+      },
+      PermissionAccessorState::Deny => Err(permission_denied()),
+    }
+  }
+
   /// Try to present the user with a permission prompt
   /// will error with permission_denied if no_prompts is enabled
   fn try_permissions_prompt(&self, message: &str) -> DenoResult<PromptResult> {
@@ -354,6 +376,10 @@ impl DenoPermissions {
     self.allow_high_precision.is_allow()
   }
 
+  pub fn allows_native_bindings(&self) -> bool {
+    self.allow_native_bindings.is_allow()
+  }
+
   pub fn revoke_run(&self) -> DenoResult<()> {
     self.allow_run.revoke();
     Ok(())
@@ -378,8 +404,14 @@ impl DenoPermissions {
     self.allow_env.revoke();
     Ok(())
   }
+
   pub fn revoke_high_precision(&self) -> DenoResult<()> {
     self.allow_high_precision.revoke();
+    Ok(())
+  }
+
+  pub fn revoke_native_bindings(&self) -> DenoResult<()> {
+    self.allow_native_bindings.revoke();
     Ok(())
   }
 }

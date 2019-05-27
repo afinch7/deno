@@ -24,6 +24,7 @@ pub struct DenoFlags {
   pub allow_env: bool,
   pub allow_run: bool,
   pub allow_high_precision: bool,
+  pub allow_native_bindings: bool,
   pub no_prompts: bool,
   pub no_fetch: bool,
   pub v8_flags: Option<Vec<String>>,
@@ -234,6 +235,10 @@ ability to spawn subprocesses.
             .long("allow-high-precision")
             .help("Allow high precision time measurement"),
         ).arg(
+          Arg::with_name("allow-native-bindings")
+            .long("allow-native-bindings")
+            .help("Allow loading native bindings"),
+        ).arg(
           Arg::with_name("allow-all")
             .short("A")
             .long("allow-all")
@@ -380,6 +385,9 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
     if run_matches.is_present("allow-high-precision") {
       flags.allow_high_precision = true;
     }
+    if run_matches.is_present("allow-native-bindings") {
+      flags.allow_native_bindings = true;
+    }
     if run_matches.is_present("allow-all") {
       flags.allow_read = true;
       flags.allow_env = true;
@@ -388,6 +396,7 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
       flags.allow_read = true;
       flags.allow_write = true;
       flags.allow_high_precision = true;
+      flags.allow_native_bindings = true;
     }
     if run_matches.is_present("no-prompt") {
       flags.no_prompts = true;
@@ -652,6 +661,7 @@ mod tests {
         allow_read: true,
         allow_write: true,
         allow_high_precision: true,
+        allow_native_bindings: true,
         ..DenoFlags::default()
       }
     );

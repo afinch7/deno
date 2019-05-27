@@ -217,6 +217,11 @@ impl ThreadSafeState {
     self.permissions.check_run()
   }
 
+  #[inline]
+  pub fn check_native_bindings(&self, name: &str) -> DenoResult<()> {
+    self.permissions.check_native_bindings(name)
+  }
+
   #[cfg(test)]
   pub fn mock() -> ThreadSafeState {
     let argv = vec![String::from("./deno"), String::from("hello.js")];
