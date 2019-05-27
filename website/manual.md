@@ -95,19 +95,25 @@ scripts to download and install the binary.
 Using Shell:
 
 ```shellsession
-$ curl -fsSL https://deno.land/x/install/install.sh | sh
+curl -fsSL https://deno.land/x/install/install.sh | sh
 ```
 
 Using PowerShell:
 
 ```shellsession
-> iwr https://deno.land/x/install/install.ps1 | iex
+iwr https://deno.land/x/install/install.ps1 | iex
 ```
 
 Using [Scoop](https://scoop.sh/) (windows):
 
-```
+```shellsession
 scoop install deno
+```
+
+Using [Homebrew](https://brew.sh/) (mac):
+
+```shellsession
+brew install deno
 ```
 
 Deno can also be installed manually, by downloading a tarball or zip file at
@@ -118,7 +124,7 @@ executable bit on Mac and Linux.
 Once it's installed and in your `$PATH`, try it:
 
 ```shellsession
-$ deno run https://deno.land/welcome.ts
+deno run https://deno.land/welcome.ts
 ```
 
 ### Build from source
@@ -326,6 +332,7 @@ const { permissions, revokePermission, open, remove } = Deno;
   revokePermission("write");
 
   // use the log file
+  const encoder = new TextEncoder();
   await log.write(encoder.encode("hello\n"));
 
   // this will prompt for the write permission or fail.
@@ -428,6 +435,7 @@ async function main() {
   const p = Deno.run({
     args: [
       "deno",
+      "run",
       "--allow-read",
       "https://deno.land/std/examples/cat.ts",
       ...fileNames

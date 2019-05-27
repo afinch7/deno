@@ -23,7 +23,7 @@ pub struct DenoFlags {
   pub net_whitelist: Vec<String>,
   pub allow_env: bool,
   pub allow_run: bool,
-  pub allow_high_precision: bool,
+  pub allow_hrtime: bool,
   pub allow_native_bindings: bool,
   pub no_prompts: bool,
   pub no_fetch: bool,
@@ -42,11 +42,27 @@ pub fn create_cli_app<'a, 'b>() -> App<'a, 'b> {
     .global_settings(&[AppSettings::ColorNever])
     .settings(&[AppSettings::DisableVersion])
     .after_help(ENV_VARIABLES_HELP)
-    .long_about("
-    Run deno REPL
+    .long_about("A secure runtime for JavaScript and TypeScript built with V8, Rust, and Tokio.
 
-    This command has implicit access to all permissions (equivalent to deno run --allow-all)
-    ")
+Docs: https://deno.land/manual.html
+Modules: https://github.com/denoland/deno_std
+Bugs: https://github.com/denoland/deno/issues
+
+To run the REPL:
+
+  deno
+
+To execute a sandboxed script:
+
+  deno run https://deno.land/welcome.ts
+
+To evaluate code from the command line:
+
+  deno eval \"console.log(30933 + 404)\"
+
+To get help on the another subcommands (run in this case):
+
+  deno help run")
     .arg(
       Arg::with_name("log-debug")
         .short("D")
@@ -84,21 +100,17 @@ pub fn create_cli_app<'a, 'b>() -> App<'a, 'b> {
       SubCommand::with_name("version")
         .setting(AppSettings::DisableVersion)
         .about("Print the version")
-        .long_about(
-          "
-Print current version of Deno.
+        .long_about("Print current version of Deno.
 
 Includes versions of Deno, V8 JavaScript Engine, and the TypeScript
-compiler.
-",
+compiler.",
         ),
     ).subcommand(
       SubCommand::with_name("fetch")
         .setting(AppSettings::DisableVersion)
         .about("Fetch the dependencies")
         .long_about(
-          "
-Fetch and compile remote dependencies recursively.
+          "Fetch and compile remote dependencies recursively.
 
 Downloads all statically imported scripts and save them in local
 cache, without running the code. No future import network requests
@@ -106,66 +118,57 @@ would be made unless --reload is specified.
 
   # Downloads all dependencies
   deno fetch https://deno.land/std/http/file_server.ts
+
   # Once cached, static imports no longer send network requests
-  deno run -A https://deno.land/std/http/file_server.ts
-",
+  deno run -A https://deno.land/std/http/file_server.ts",
         ).arg(Arg::with_name("file").takes_value(true).required(true)),
     ).subcommand(
       SubCommand::with_name("types")
         .setting(AppSettings::DisableVersion)
         .about("Print runtime TypeScript declarations")
-        .long_about(
-          "
-Print runtime TypeScript declarations.
-
-The declaration file could be saved and used for typing information.
+        .long_about("Print runtime TypeScript declarations.
 
   deno types > lib.deno_runtime.d.ts
-",
+
+The declaration file could be saved and used for typing information.",
         ),
     ).subcommand(
       SubCommand::with_name("info")
         .setting(AppSettings::DisableVersion)
         .about("Show source file related info")
-        .long_about(
-          "
-Show source file related info.
+        .long_about("Show source file related info.
+
+  deno info https://deno.land/std@v0.6/http/file_server.ts
 
 The following information is shown:
 
-local:     local path of the file.
-type:      type of script (e.g. JavaScript/TypeScript/JSON)
-compiled:  (TypeScript only) shown local path of compiled source code.
-map:       (TypeScript only) shown local path of source map.
-deps:      dependency tree of the source file.
-
-  deno info myfile.ts
-",
+  local:    Local path of the file.
+  type:     JavaScript, TypeScript, or JSON.
+  compiled: TypeScript only. shown local path of compiled source code.
+  map:      TypeScript only. shown local path of source map.
+  deps:     Dependency tree of the source file.",
         ).arg(Arg::with_name("file").takes_value(true).required(true)),
     ).subcommand(
       SubCommand::with_name("eval")
         .setting(AppSettings::DisableVersion)
         .about("Eval script")
         .long_about(
-          "
-Evaluate provided script.
+          "Evaluate provided script.
 
 This command has implicit access to all permissions (equivalent to deno run --allow-all)
 
-  deno eval 'console.log(\"hello world\")'
-",
+  deno eval \"console.log('hello world')\"",
         ).arg(Arg::with_name("code").takes_value(true).required(true)),
     ).subcommand(
       SubCommand::with_name("fmt")
         .setting(AppSettings::DisableVersion)
         .about("Format files")
         .long_about(
-          "
-Format given list of files using Prettier. Automatically downloads
-Prettier dependencies on first run.
+"Auto-format JavaScript/TypeScript source code using Prettier
 
-  deno fmt myfile1.ts myfile2.ts
-",
+Automatically downloads Prettier dependencies on first run.
+
+  deno fmt --write myfile1.ts myfile2.ts",
         ).arg(
           Arg::with_name("files")
             .takes_value(true)
@@ -181,8 +184,7 @@ Prettier dependencies on first run.
           AppSettings::SubcommandRequired,
         ]).about("Run a program given a filename or url to the source code")
         .long_about(
-          "
-Run a program given a filename or url to the source code.
+          "Run a program given a filename or url to the source code.
 
 By default all programs are run in sandbox without access to disk, network or
 ability to spawn subprocesses.
@@ -192,12 +194,11 @@ ability to spawn subprocesses.
   # run program with permission to read from disk and listen to network
   deno run --allow-net --allow-read https://deno.land/std/http/file_server.ts
 
-  # run program with permission to read whitelist files from disk and listen to nework
+  # run program with permission to read whitelist files from disk and listen to network
   deno run --allow-net --allow-read=$(pwd) https://deno.land/std/http/file_server.ts 
 
   # run program with all permissions
-  deno run -A https://deno.land/std/http/file_server.ts
-",
+  deno run -A https://deno.land/std/http/file_server.ts",
         ).arg(
           Arg::with_name("allow-read")
         .long("allow-read")
@@ -231,9 +232,9 @@ ability to spawn subprocesses.
             .long("allow-run")
             .help("Allow running subprocesses"),
         ).arg(
-          Arg::with_name("allow-high-precision")
-            .long("allow-high-precision")
-            .help("Allow high precision time measurement"),
+          Arg::with_name("allow-hrtime")
+            .long("allow-hrtime")
+            .help("Allow high resolution time measurement"),
         ).arg(
           Arg::with_name("allow-native-bindings")
             .long("allow-native-bindings")
@@ -258,8 +259,7 @@ ability to spawn subprocesses.
         .setting(AppSettings::DisableVersion)
         .about("Eval a script on text segments from stdin")
         .long_about(
-          "
-Eval a script on lines (or chunks split under delimiter) from stdin.
+          "Eval a script on lines from stdin
 
 Read from standard input and eval code on each whitespace-delimited
 string chunks.
@@ -269,12 +269,17 @@ Otherwise '$' will be used as default variable name.
 
 This command has implicit access to all permissions (equivalent to deno run --allow-all)
 
+Print all the usernames in /etc/passwd:
+
   cat /etc/passwd | deno xeval \"a = $.split(':'); if (a) console.log(a[0])\"
+
+A complicated way to print the current git branch:
 
   git branch | deno xeval -I 'line' \"if (line.startsWith('*')) console.log(line.slice(2))\"
 
-  cat LICENSE | deno xeval -d ' ' \"if ($ === 'MIT') console.log('MIT licensed')\"
-",
+Demonstrates breaking the input up by space delimiter instead of by lines:
+
+  cat LICENSE | deno xeval -d \" \" \"if ($ === 'MIT') console.log('MIT licensed')\"",
         ).arg(
           Arg::with_name("replvar")
             .long("replvar")
@@ -382,8 +387,8 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
     if run_matches.is_present("allow-run") {
       flags.allow_run = true;
     }
-    if run_matches.is_present("allow-high-precision") {
-      flags.allow_high_precision = true;
+    if run_matches.is_present("allow-hrtime") {
+      flags.allow_hrtime = true;
     }
     if run_matches.is_present("allow-native-bindings") {
       flags.allow_native_bindings = true;
@@ -395,7 +400,7 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
       flags.allow_run = true;
       flags.allow_read = true;
       flags.allow_write = true;
-      flags.allow_high_precision = true;
+      flags.allow_hrtime = true;
       flags.allow_native_bindings = true;
     }
     if run_matches.is_present("no-prompt") {
@@ -407,7 +412,7 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
 }
 
 /// Used for `deno fmt <files>...` subcommand
-const PRETTIER_URL: &str = "https://deno.land/std/prettier/main.ts";
+const PRETTIER_URL: &str = "https://deno.land/std@v0.5.0/prettier/main.ts";
 
 /// These are currently handled subcommands.
 /// There is no "Help" subcommand because it's handled by `clap::App` itself.
@@ -438,7 +443,7 @@ pub fn flags_from_vec(
       flags.allow_run = true;
       flags.allow_read = true;
       flags.allow_write = true;
-      flags.allow_high_precision = true;
+      flags.allow_hrtime = true;
       let code: &str = eval_match.value_of("code").unwrap();
       argv.extend(vec![code.to_string()]);
       DenoSubcommand::Eval
@@ -496,7 +501,7 @@ pub fn flags_from_vec(
       flags.allow_run = true;
       flags.allow_read = true;
       flags.allow_write = true;
-      flags.allow_high_precision = true;
+      flags.allow_hrtime = true;
       let code: &str = eval_match.value_of("code").unwrap();
       flags.xeval_replvar =
         Some(eval_match.value_of("replvar").unwrap_or("$").to_owned());
@@ -514,7 +519,7 @@ pub fn flags_from_vec(
       flags.allow_run = true;
       flags.allow_read = true;
       flags.allow_write = true;
-      flags.allow_high_precision = true;
+      flags.allow_hrtime = true;
       DenoSubcommand::Repl
     }
   };
@@ -660,7 +665,7 @@ mod tests {
         allow_run: true,
         allow_read: true,
         allow_write: true,
-        allow_high_precision: true,
+        allow_hrtime: true,
         allow_native_bindings: true,
         ..DenoFlags::default()
       }
@@ -686,16 +691,12 @@ mod tests {
 
   #[test]
   fn test_flags_from_vec_9() {
-    let (flags, subcommand, argv) = flags_from_vec(svec![
-      "deno",
-      "run",
-      "--allow-high-precision",
-      "script.ts"
-    ]);
+    let (flags, subcommand, argv) =
+      flags_from_vec(svec!["deno", "run", "--allow-hrtime", "script.ts"]);
     assert_eq!(
       flags,
       DenoFlags {
-        allow_high_precision: true,
+        allow_hrtime: true,
         ..DenoFlags::default()
       }
     );
@@ -805,7 +806,7 @@ mod tests {
         allow_run: true,
         allow_read: true,
         allow_write: true,
-        allow_high_precision: true,
+        allow_hrtime: true,
         ..DenoFlags::default()
       }
     );
@@ -824,7 +825,7 @@ mod tests {
         allow_run: true,
         allow_read: true,
         allow_write: true,
-        allow_high_precision: true,
+        allow_hrtime: true,
         ..DenoFlags::default()
       }
     );
@@ -851,7 +852,7 @@ mod tests {
         allow_run: true,
         allow_read: true,
         allow_write: true,
-        allow_high_precision: true,
+        allow_hrtime: true,
         xeval_replvar: Some("val".to_owned()),
         xeval_delim: Some(" ".to_owned()),
         ..DenoFlags::default()
