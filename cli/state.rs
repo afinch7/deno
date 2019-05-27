@@ -166,7 +166,7 @@ impl ThreadSafeState {
       progress,
       binding_next_op_id: AtomicU32::new(0),
       binding_op_id_map: RwLock::new(HashMap::new()),
-      binding_disptach_context: DenoDispatchContext::new(),
+      binding_disptach_context: DenoDispatchContext::default(),
     }))
   }
 

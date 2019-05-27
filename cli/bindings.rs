@@ -11,13 +11,8 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
+#[derive(Default)]
 pub struct DenoDispatchContext;
-
-impl DenoDispatchContext {
-  pub fn new() -> Self {
-    Self {}
-  }
-}
 
 impl BindingDispatchContext for DenoDispatchContext {}
 
