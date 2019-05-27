@@ -7,8 +7,8 @@ use std::fmt::Debug;
 /// Initlization context with various init specific bindings
 pub trait BindingInitContext {
     /// Registers a new op with the runtime. This should provide a unique OpId 
-    /// at window.opIds.$plugin_name.$name at runtime for the ts/js side code
-    /// to use.
+    /// at Deno.nativeBindings.opIds.$plugin_name.$name at runtime for the 
+    /// ts/js side code to use.
     fn register_op(
         &self,
         name: String,
@@ -20,10 +20,12 @@ pub trait BindingInitContext {
 
 pub trait BindingPlugin: Any + Send + Sync + Debug {
     /// Get a name for debug usage.
+    /// This should return a static value that should not change.
     fn name(&self) -> &'static str;
     /// Allow plugin to perform init by passing it a init context.
     fn init(&self, context: &BindingInitContext) -> BindingResult<()>;
-    /// Get source for binding module
+    /// Get source for binding module. 
+    /// This should return a static value that should not change.
     fn es_module_source(&self) -> String;
 }
 

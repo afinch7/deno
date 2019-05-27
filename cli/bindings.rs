@@ -11,11 +11,13 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
+/// Standard dispatch context for custom ops in native bindings.
 #[derive(Default)]
 pub struct DenoDispatchContext;
 
 impl BindingDispatchContext for DenoDispatchContext {}
 
+/// Standard init context for native binding plugins.
 pub struct DenoInitContext {
   state: ThreadSafeState,
   op_namespace: String,

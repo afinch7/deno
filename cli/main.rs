@@ -299,6 +299,9 @@ fn run_script(flags: DenoFlags, argv: Vec<String>) {
   tokio_util::run(main_future);
 }
 
+// TODO(afinch7) add debug command for native bindings, so we can print out
+// it's source code.
+
 fn main() {
   #[cfg(windows)]
   ansi_term::enable_ansi_support().ok(); // For Windows 10
