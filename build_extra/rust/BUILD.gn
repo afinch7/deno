@@ -241,7 +241,7 @@ rust_rlib("dirs") {
 
 rust_proc_macro("dlopen_derive") {
   edition = "2015"
-  source_root = "$cargo_home/registry/src/github.com-1ecc6299db9ec823/dlopen_derive-0.1.3/src/lib.rs"
+  source_root = "$cargo_home/git/checkouts/rust-dlopen-33afebbf83fc351e/41ac766/rust-dlopen-derive/src/lib.rs"
   args = [
     "--cap-lints",
     "allow",
@@ -255,7 +255,7 @@ rust_proc_macro("dlopen_derive") {
 
 rust_rlib("dlopen") {
   edition = "2015"
-  source_root = "$cargo_home/registry/src/github.com-1ecc6299db9ec823/dlopen-0.1.6/src/lib.rs"
+  source_root = "$cargo_home/git/checkouts/rust-dlopen-33afebbf83fc351e/41ac766/src/lib.rs"
   args = [
     "--cap-lints",
     "allow",

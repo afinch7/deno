@@ -19,7 +19,6 @@ edition = "2018"
 deno = { path = "../core" }
 deno_lib_bindings = { path = "../lib_bindings" }
 
-dlopen = "0.1.6"
 ansi_term = "0.11.0"
 atty = "0.2.11"
 clap = "2.33.0"
@@ -52,6 +51,11 @@ tokio-rustls = "0.9.2"
 tokio-threadpool = "0.1.14"
 url = "1.7.2"
 utime = "0.2.1"
+
+[dependencies.dlopen]
+version = "0.1.6"
+git = "https://github.com/szymonwieloch/rust-dlopen"
+rev = "41ac766f3f00e01fba89abd2686ea8508bd20879"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.7"
