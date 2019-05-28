@@ -115,12 +115,12 @@ install:
   # Clone the third_party submodule.
   - ps: |-
       try {
-        Exec { & git submodule update --init --force --depth 1 }
+        Exec { & git submodule update --init --force --recursive --depth 2 }
       } catch {
         # Git will fail if the `third_party` directory was restored from cache,
         # but the `.git/modules` directory wasn't. Rebuild it from scratch.
         Delete-Tree $env:DENO_THIRD_PARTY_PATH
-        Exec -NoNewLines { & git submodule update --init --force --depth 1 }
+        Exec -NoNewLines { & git submodule update --init --force --recursive --depth 2 }
       }
 
   # Configure depot_tools and add it to the search path. This is necessary
