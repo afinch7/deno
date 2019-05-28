@@ -9,7 +9,6 @@ group("default") {
     "core:default",
     "core/libdeno:libdeno_test",
     "lib_bindings:default",
-    "test_binding_plugin:test_binding_plugin",
   ]
 }
 
