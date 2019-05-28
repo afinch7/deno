@@ -63,21 +63,3 @@ template("snapshot") {
     #  args += ["--trace-serializer"]
   }
 }
-
-template("cargo_build") {
-  action(target_name) {
-    forward_variables_from(invoker, "*")
-    script = "//build_extra/rust/run.py"
-
-    args = [
-      "cargo",
-      "build",
-      "-p",
-      "$package_name",
-    ]
-
-    if (!is_debug) {
-      args += [ "--release" ]
-    }
-  }
-}

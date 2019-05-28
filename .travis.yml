@@ -72,6 +72,7 @@ script:
 - ./tools/lint.py
 - ./tools/test_format.py
 - ./tools/build.py -C target/release
+- cargo build -p test_binding_plugin --release --locked
 - DENO_BUILD_MODE=release ./tools/test.py
 
 jobs:
