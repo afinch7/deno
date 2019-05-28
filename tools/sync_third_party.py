@@ -11,7 +11,7 @@ import util
 
 util.enable_ansi_colors()
 
-# third_party.run_yarn()
+third_party.run_yarn()
 third_party.run_cargo()
-# third_party.run_pip()
-# third_party.run_gclient_sync()
+third_party.run_pip()
+third_party.run_gclient_sync()
