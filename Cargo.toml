@@ -3,5 +3,5 @@ members = [
   "cli",
   "core",
   "lib_bindings",
-  "test_binding_plugin",
+  "test_binding",
 ]

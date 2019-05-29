@@ -15,7 +15,7 @@ enum Repr {
   IoErr(io::Error),
 }
 
-pub fn new(msg: String) -> BindingError {
+pub fn new_binding_error(msg: String) -> BindingError {
   BindingError {
     repr: Repr::Simple(msg),
   }

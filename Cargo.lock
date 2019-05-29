@@ -1081,7 +1081,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "test_binding_plugin"
+name = "test_binding"
 version = "0.1.0"
 dependencies = [
  "deno_lib_bindings 0.6.0",

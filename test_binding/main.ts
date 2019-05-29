@@ -1,4 +1,8 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+const { platformFilename, DynamicLibary } = Deno.dlopen;
+
+const dLib = new DynamicLibary("target/release/" + platformFilename("test_binding_lib"));
+const testOpFn = dLib.loadFn("test_op");
 
 export interface TestOptions {
     name: string;
@@ -22,8 +26,7 @@ function decodeTestOp(data: Uint8Array): any {
 
 export const testOp = (args: TestOptions): any => {
     return decodeTestOp(
-        Deno.nativeBindings.sendSync(
-            Deno.nativeBindings.opIds.test_binding_plugin.testOp,
+        testOpFn.dispatchSync(
             encodeTestOp(args),
         ),
     );

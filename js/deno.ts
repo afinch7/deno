@@ -88,7 +88,13 @@ export const args: string[] = [];
 /** @internal */
 export { core } from "./core";
 
-export { nativeBindings } from "./native_bindings";
+export { 
+  DynamicLibFn,
+  DynamicLibImpl as DynamicLib,
+  platformFilenamePrefix,
+  platformFilenameExtension,
+  platformFilename,
+} from "./dlopen";
 
 // TODO Don't expose Console nor stringifyArgs.
 /** @internal */
