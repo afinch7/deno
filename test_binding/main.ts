@@ -1,7 +1,11 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 const { platformFilename, loadDylib } = Deno;
 
-const dLib = loadDylib("target/release/" + platformFilename("test_binding"));
+let localPath: any = import.meta.url.split("/");
+localPath.pop();
+localPath = localPath.join("/");
+
+const dLib = loadDylib(localPath + "/../target/release/" + platformFilename("test_binding"));
 const testOpFn = dLib.loadFn("test_op");
 
 export interface TestOptions {
