@@ -1,5 +1,4 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-use crate::bindings::DenoDispatchContext;
 use crate::deno_dir;
 use crate::errors::DenoResult;
 use crate::flags;
@@ -12,19 +11,17 @@ use crate::resources::ResourceId;
 use crate::worker::Worker;
 use deno::Buf;
 use deno::Op;
-use deno::OpId;
 use deno::PinnedBuf;
-use deno_lib_bindings::dispatch::OpDispatchFn;
 use futures::future::Shared;
 use std;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::RwLock;
 use std::time::Instant;
 use tokio::sync::mpsc as async_mpsc;
 
@@ -41,6 +38,7 @@ pub struct Metrics {
   pub bytes_sent_data: AtomicUsize,
   pub bytes_received: AtomicUsize,
   pub resolve_count: AtomicUsize,
+  pub compiler_starts: AtomicUsize,
 }
 
 /// Isolate cannot be passed between threads but ThreadSafeState can.
@@ -70,9 +68,11 @@ pub struct State {
   pub dispatch_selector: ops::OpSelector,
   /// Reference to global progress bar.
   pub progress: Progress,
-  pub binding_next_op_id: AtomicU32,
-  pub binding_op_id_map: RwLock<HashMap<OpId, OpDispatchFn>>,
-  pub binding_disptach_context: DenoDispatchContext,
+
+  /// Set of all URLs that have been compiled. This is a hacky way to work
+  /// around the fact that --reload will force multiple compilations of the same
+  /// module.
+  compiled: Mutex<HashSet<String>>,
 }
 
 impl Clone for ThreadSafeState {
@@ -164,9 +164,7 @@ impl ThreadSafeState {
       resource,
       dispatch_selector,
       progress,
-      binding_next_op_id: AtomicU32::new(0),
-      binding_op_id_map: RwLock::new(HashMap::new()),
-      binding_disptach_context: DenoDispatchContext::default(),
+      compiled: Mutex::new(HashSet::new()),
     }))
   }
 
@@ -185,6 +183,16 @@ impl ThreadSafeState {
         }
       }
     }
+  }
+
+  pub fn mark_compiled(&self, module_id: &str) {
+    let mut c = self.compiled.lock().unwrap();
+    c.insert(module_id.to_string());
+  }
+
+  pub fn has_compiled(&self, module_id: &str) -> bool {
+    let c = self.compiled.lock().unwrap();
+    c.contains(module_id)
   }
 
   #[inline]
@@ -215,11 +223,6 @@ impl ThreadSafeState {
   #[inline]
   pub fn check_run(&self) -> DenoResult<()> {
     self.permissions.check_run()
-  }
-
-  #[inline]
-  pub fn check_native_bindings(&self, name: &str) -> DenoResult<()> {
-    self.permissions.check_native_bindings(name)
   }
 
   #[cfg(test)]

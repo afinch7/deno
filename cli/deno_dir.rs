@@ -1,5 +1,4 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-use crate::bindings;
 use crate::compiler::ModuleMetaData;
 use crate::errors;
 use crate::errors::DenoError;
@@ -25,7 +24,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::result::Result;
 use std::str;
-use std::sync::Arc;
 use url;
 use url::Url;
 
@@ -530,7 +528,6 @@ fn map_file_extension(path: &Path) -> msg::MediaType {
       Some("js") => msg::MediaType::JavaScript,
       Some("mjs") => msg::MediaType::JavaScript,
       Some("json") => msg::MediaType::Json,
-      Some("so") | Some("dylib") | Some("dll") => msg::MediaType::Dylib,
       _ => msg::MediaType::Unknown,
     },
   }
@@ -578,7 +575,6 @@ fn filter_shebang(bytes: Vec<u8>) -> Vec<u8> {
   }
 }
 
-// TODO(afinch7) implement remote fetching for native binding modules
 /// Asynchronously fetch remote source file specified by the URL `module_name`
 /// and write it to disk at `filename`.
 fn fetch_remote_source_async(
@@ -687,7 +683,6 @@ fn fetch_remote_source_async(
               maybe_output_code: None,
               maybe_source_map_filename: None,
               maybe_source_map: None,
-              maybe_binding_plugin: None,
             })))
           }
         }
@@ -760,48 +755,29 @@ fn fetch_local_source(
   }
   // No redirect needed or end of redirects.
   // We can try read the file
-  let media_type = map_content_type(
-    &p,
-    source_code_headers.mime_type.as_ref().map(String::as_str),
-  );
-
-  let (maybe_binding_plugin, source_code) = match media_type {
-    msg::MediaType::Dylib => {
-      let plugin = unsafe {
-        match bindings::load_binding_plugin(p) {
-          Ok(v) => v,
-          Err(e) => return Err(e),
-        }
-      };
-      let source_code = plugin.es_module_source();
-      (Some(Arc::new(plugin)), source_code.as_bytes().to_vec())
+  let source_code = match fs::read(p) {
+    Err(e) => {
+      if e.kind() == std::io::ErrorKind::NotFound {
+        return Ok(None);
+      } else {
+        return Err(e.into());
+      }
     }
-    _ => {
-      let source_code = match fs::read(p) {
-        Err(e) => {
-          if e.kind() == std::io::ErrorKind::NotFound {
-            return Ok(None);
-          } else {
-            return Err(e.into());
-          }
-        }
-        Ok(c) => c,
-      };
-      (None, source_code)
-    }
+    Ok(c) => c,
   };
-
   Ok(Some(ModuleMetaData {
     module_name: module_name.to_string(),
     module_redirect_source_name: module_initial_source_name,
     filename: filename.to_string(),
-    media_type,
+    media_type: map_content_type(
+      &p,
+      source_code_headers.mime_type.as_ref().map(String::as_str),
+    ),
     source_code,
     maybe_output_code_filename: None,
     maybe_output_code: None,
     maybe_source_map_filename: None,
     maybe_source_map: None,
-    maybe_binding_plugin,
   }))
 }
 
@@ -1047,7 +1023,6 @@ mod tests {
       maybe_output_code_filename: None,
       maybe_source_map: Some(source_map[..].to_owned()),
       maybe_source_map_filename: None,
-      maybe_binding_plugin: None,
     };
 
     let r = deno_dir.code_cache(&out);

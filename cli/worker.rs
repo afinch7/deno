@@ -1,5 +1,4 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-use crate::bindings::DenoInitContext;
 use crate::compiler::compile_async;
 use crate::compiler::ModuleMetaData;
 use crate::errors::DenoError;
@@ -11,7 +10,6 @@ use crate::state::ThreadSafeState;
 use crate::tokio_util;
 use deno;
 use deno::Config;
-use deno::CustomOpId;
 use deno::JSError;
 use deno::Loader;
 use deno::StartupData;
@@ -184,12 +182,11 @@ impl Loader for Worker {
         .map_err(|err| {
           eprintln!("{}", err);
           err
-        }).map(|result| deno::SourceCodeInfo {
+        }).map(|module_meta_data| deno::SourceCodeInfo {
           // Real module name, might be different from initial URL
           // due to redirections.
-          code: result.0.js_source(),
-          module_name: result.0.module_name,
-          custom_op_ids: result.1,
+          code: module_meta_data.js_source(),
+          module_name: module_meta_data.module_name,
         }),
     )
   }
@@ -214,65 +211,47 @@ fn fetch_module_meta_data_and_maybe_compile_async(
   state: &ThreadSafeState,
   specifier: &str,
   referrer: &str,
-) -> impl Future<Item = (ModuleMetaData, Option<Vec<CustomOpId>>), Error = DenoError>
-{
-  let use_cache = !state.flags.reload;
-  let no_fetch = state.flags.no_fetch;
+) -> impl Future<Item = ModuleMetaData, Error = DenoError> {
   let state_ = state.clone();
-  let state__ = state.clone();
   let specifier = specifier.to_string();
   let referrer = referrer.to_string();
-  state
-    .dir
-    .fetch_module_meta_data_async(&specifier, &referrer, use_cache, no_fetch)
-    .and_then(move |out| {
-      if (out.media_type == msg::MediaType::TypeScript
-        || out.media_type == msg::MediaType::Dylib)
-        && !out.has_output_code_and_source_map()
-      {
-        debug!(">>>>> compile_sync START");
-        Either::A(
-          compile_async(state_.clone(), &specifier, &referrer, &out)
-            .map_err(|e| {
-              debug!("compiler error exiting!");
-              eprintln!("{}", JSErrorColor(&e).to_string());
-              std::process::exit(1);
-            }).and_then(move |out| {
-              debug!(">>>>> compile_sync END");
-              state_.dir.code_cache(&out)?;
-              Ok(out)
-            }),
-        )
-      } else {
-        Either::B(futures::future::ok(out))
-      }
-    }).and_then(move |module_meta_data| {
-      match &module_meta_data.maybe_binding_plugin {
-        Some(plugin) => {
-          match state__.check_native_bindings(&module_meta_data.module_name) {
-            Ok(_) => {
-              let init_context =
-                DenoInitContext::new(state__, plugin.name().to_string());
-              if let Err(e) = plugin.init(&init_context) {
-                return futures::future::err(DenoError::from(e));
-              }
-              let custom_op_ids =
-                init_context.custom_op_ids.lock().unwrap().clone();
-              futures::future::ok((module_meta_data, Some(custom_op_ids)))
-            }
-            Err(err) => futures::future::err(err),
-          }
+
+  let f = futures::future::result(Worker::resolve(&specifier, &referrer));
+  f.and_then(move |module_id| {
+    let use_cache = !state_.flags.reload || state_.has_compiled(&module_id);
+    let no_fetch = state_.flags.no_fetch;
+
+    state_
+      .dir
+      .fetch_module_meta_data_async(&specifier, &referrer, use_cache, no_fetch)
+      .and_then(move |out| {
+        if out.media_type == msg::MediaType::TypeScript
+          && !out.has_output_code_and_source_map()
+        {
+          debug!(">>>>> compile_sync START");
+          Either::A(
+            compile_async(state_.clone(), &specifier, &referrer, &out)
+              .map_err(|e| {
+                debug!("compiler error exiting!");
+                eprintln!("{}", JSErrorColor(&e).to_string());
+                std::process::exit(1);
+              }).and_then(move |out| {
+                debug!(">>>>> compile_sync END");
+                Ok(out)
+              }),
+          )
+        } else {
+          Either::B(futures::future::ok(out))
         }
-        None => futures::future::ok((module_meta_data, None)),
-      }
-    })
+      })
+  })
 }
 
 pub fn fetch_module_meta_data_and_maybe_compile(
   state: &ThreadSafeState,
   specifier: &str,
   referrer: &str,
-) -> Result<(ModuleMetaData, Option<Vec<CustomOpId>>), DenoError> {
+) -> Result<ModuleMetaData, DenoError> {
   tokio_util::block_on(fetch_module_meta_data_and_maybe_compile_async(
     state, specifier, referrer,
   ))
@@ -322,6 +301,8 @@ mod tests {
 
     let metrics = &state_.metrics;
     assert_eq!(metrics.resolve_count.load(Ordering::SeqCst), 2);
+    // Check that we didn't start the compiler.
+    assert_eq!(metrics.compiler_starts.load(Ordering::SeqCst), 0);
   }
 
   #[test]
@@ -352,6 +333,8 @@ mod tests {
 
     let metrics = &state_.metrics;
     assert_eq!(metrics.resolve_count.load(Ordering::SeqCst), 2);
+    // Check that we didn't start the compiler.
+    assert_eq!(metrics.compiler_starts.load(Ordering::SeqCst), 0);
   }
 
   #[test]
@@ -386,6 +369,8 @@ mod tests {
 
     let metrics = &state_.metrics;
     assert_eq!(metrics.resolve_count.load(Ordering::SeqCst), 3);
+    // Check that we've only invoked the compiler once.
+    assert_eq!(metrics.compiler_starts.load(Ordering::SeqCst), 1);
   }
 
   fn create_test_worker() -> Worker {
@@ -484,20 +469,24 @@ mod tests {
 
   #[test]
   fn execute_mod_resolve_error() {
-    // "foo" is not a vailid module specifier so this should return an error.
-    let worker = create_test_worker();
-    let js_url = root_specifier_to_url("does-not-exist").unwrap();
-    let result = worker.execute_mod_async(&js_url, false).wait();
-    assert!(result.is_err());
+    tokio_util::init(|| {
+      // "foo" is not a vailid module specifier so this should return an error.
+      let worker = create_test_worker();
+      let js_url = root_specifier_to_url("does-not-exist").unwrap();
+      let result = worker.execute_mod_async(&js_url, false).wait();
+      assert!(result.is_err());
+    })
   }
 
   #[test]
   fn execute_mod_002_hello() {
-    // This assumes cwd is project root (an assumption made throughout the
-    // tests).
-    let worker = create_test_worker();
-    let js_url = root_specifier_to_url("./tests/002_hello.ts").unwrap();
-    let result = worker.execute_mod_async(&js_url, false).wait();
-    assert!(result.is_ok());
+    tokio_util::init(|| {
+      // This assumes cwd is project root (an assumption made throughout the
+      // tests).
+      let worker = create_test_worker();
+      let js_url = root_specifier_to_url("./tests/002_hello.ts").unwrap();
+      let result = worker.execute_mod_async(&js_url, false).wait();
+      assert!(result.is_ok());
+    })
   }
 }
