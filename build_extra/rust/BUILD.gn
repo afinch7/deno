@@ -1281,14 +1281,6 @@ rust_rlib("sct") {
   ]
 }
 
-rust_rlib("shell_escape") {
-  source_root = "$cargo_home/registry/src/github.com-1ecc6299db9ec823/shell-escape-0.1.4/src/lib.rs"
-  args = [
-    "--cap-lints",
-    "allow",
-  ]
-}
-
 rust_rlib("serde") {
   edition = "2015"
   source_root = "$cargo_home/registry/src/github.com-1ecc6299db9ec823/serde-1.0.91/src/lib.rs"
@@ -1844,15 +1836,6 @@ rust_rlib("tokio_udp") {
 rust_rlib("try_lock") {
   edition = "2015"
   source_root = "$cargo_home/registry/src/github.com-1ecc6299db9ec823/try-lock-0.2.2/src/lib.rs"
-  args = [
-    "--cap-lints",
-    "allow",
-  ]
-}
-
-rust_executable("typenum_build_script") {
-  edition = "2015"
-  source_root = "$cargo_home/registry/src/github.com-1ecc6299db9ec823/typenum-1.10.0/build/main.rs"
   args = [
     "--cap-lints",
     "allow",
