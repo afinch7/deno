@@ -243,44 +243,4 @@ void deno_terminate_execution(Deno* d_) {
   deno::DenoIsolate* d = reinterpret_cast<deno::DenoIsolate*>(d_);
   d->isolate_->TerminateExecution();
 }
-
-void deno_set_op_id(Deno* d_, const char* op_namespace, const char* op_name,
-                    int op_id) {
-  auto* d = unwrap(d_);
-
-  auto* isolate = d->isolate_;
-  v8::Isolate::Scope isolate_scope(isolate);
-  v8::Locker locker(isolate);
-  v8::HandleScope handle_scope(isolate);
-  auto context = d->context_.Get(d->isolate_);
-  v8::Context::Scope context_scope(context);
-
-  v8::Local<v8::Object> global = context->Global();
-
-  v8::Local<v8::Object> deno_object = v8::Local<v8::Object>::Cast(
-      global->Get(context, deno::v8_str("Deno")).ToLocalChecked());
-
-  v8::Local<v8::Object> core_object = v8::Local<v8::Object>::Cast(
-      deno_object->Get(context, deno::v8_str("core")).ToLocalChecked());
-
-  v8::Local<v8::Object> op_ids_object = v8::Local<v8::Object>::Cast(
-      core_object->Get(context, deno::v8_str("opIds")).ToLocalChecked());
-
-  if (op_ids_object->Has(context, deno::v8_str(op_namespace)).FromJust()) {
-    v8::Local<v8::Value> op_ns_value =
-        op_ids_object->Get(context, deno::v8_str(op_namespace))
-            .ToLocalChecked();
-    auto op_ns_object = v8::Local<v8::Object>::Cast(op_ns_value);
-    auto op_id_val = deno::v8_int(op_id);
-    CHECK(op_ns_object->Set(context, deno::v8_str(op_name), op_id_val)
-              .FromJust());
-  } else {
-    auto op_ns_object = v8::Object::New(isolate);
-    auto op_id_val = deno::v8_int(op_id);
-    CHECK(op_ns_object->Set(context, deno::v8_str(op_name), op_id_val)
-              .FromJust());
-    CHECK(op_ids_object->Set(context, deno::v8_str(op_namespace), op_ns_object)
-              .FromJust());
-  }
-}
 }

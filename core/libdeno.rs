@@ -292,13 +292,6 @@ extern "C" {
     id: deno_mod,
   );
 
-  pub fn deno_set_op_id(
-    i: *const isolate,
-    op_namespace: *const c_char,
-    op_name: *const c_char,
-    op_id: c_int,
-  );
-
   pub fn deno_snapshot_new(i: *const isolate) -> Snapshot1<'static>;
 
   #[allow(dead_code)]

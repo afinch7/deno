@@ -476,10 +476,6 @@ void InitializeContext(v8::Isolate* isolate, v8::Local<v8::Context> context) {
 
   CHECK(core_val->SetAccessor(context, deno::v8_str("shared"), Shared)
             .FromJust());
-
-  // TODO(afinch7) maybe use a accessor for this?
-  auto op_ids_val = v8::Object::New(isolate);
-  CHECK(core_val->Set(context, deno::v8_str("opIds"), op_ids_val).FromJust());
 }
 
 void MessageCallback(v8::Local<v8::Message> message,

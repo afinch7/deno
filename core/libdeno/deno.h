@@ -117,9 +117,6 @@ void deno_mod_instantiate(Deno* d, void* user_data, deno_mod id,
 // If it succeeded deno_last_exception() will return NULL.
 void deno_mod_evaluate(Deno* d, void* user_data, deno_mod id);
 
-void deno_set_op_id(Deno* d, const char* op_namespace, const char* op_name,
-                    int op_id);
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif

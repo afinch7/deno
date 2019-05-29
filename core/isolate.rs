@@ -340,23 +340,6 @@ impl Isolate {
     assert_ne!(snapshot.data_len, 0);
     Ok(snapshot)
   }
-
-  pub fn set_op_id(&self, op_namespace: &str, op_name: &str, op_id: u32) {
-    let op_namespace_ = CString::new(op_namespace.to_string()).unwrap();
-    let op_namespace_ptr = op_namespace_.as_ptr() as *const libc::c_char;
-
-    let op_name_ = CString::new(op_name.to_string()).unwrap();
-    let op_name_ptr = op_name_.as_ptr() as *const libc::c_char;
-
-    unsafe {
-      libdeno::deno_set_op_id(
-        self.libdeno_isolate,
-        op_namespace_ptr,
-        op_name_ptr,
-        op_id as libc::c_int,
-      )
-    }
-  }
 }
 
 /// Called during mod_instantiate() to resolve imports.
@@ -1008,23 +991,5 @@ pub mod tests {
     let startup_data = StartupData::LibdenoSnapshot(snapshot);
     let mut isolate2 = Isolate::new(startup_data, Config::default());
     js_check(isolate2.execute("check.js", "if (a != 3) throw Error('x')"));
-  }
-
-  #[test]
-  fn test_op_ids() {
-    let (mut isolate, _) = setup(Mode::OverflowReqSync);
-    isolate.set_op_id("test_namespace", "testOp", 0);
-    isolate.set_op_id("test_namespace", "testOp2", 3);
-    isolate.set_op_id("test_namespace2", "testOp2", 1);
-    isolate.set_op_id("test_namespace2", "testOp", 2);
-    js_check(isolate.execute(
-      "test_op_ids.js",
-      r#"
-      if (Deno.core.opIds.test_namespace.testOp != 0) throw Error('x');
-      if (Deno.core.opIds.test_namespace2.testOp != 2) throw Error('x');
-      if (Deno.core.opIds.test_namespace2.testOp2 != 1) throw Error('x');
-      if (Deno.core.opIds.test_namespace.testOp2 != 3) throw Error('x');
-      "#,
-    ));
   }
 }
