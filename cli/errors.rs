@@ -244,11 +244,12 @@ pub fn no_buffer_specified() -> DenoError {
   new(ErrorKind::InvalidInput, String::from("no buffer specified"))
 }
 
-pub fn binding_op_id_not_found() -> DenoError {
-  new(
-    ErrorKind::BindingOpIdNotFound,
-    String::from("Binding custom op id not found."),
-  )
+pub fn binding_bad_lib_id() -> DenoError {
+  new(ErrorKind::BindingBadLibId, String::from("bad resource id"))
+}
+
+pub fn binding_bad_fn_id() -> DenoError {
+  new(ErrorKind::BindingBadFnId, String::from("bad resource id"))
 }
 
 #[derive(Debug)]

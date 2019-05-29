@@ -11,6 +11,12 @@ union Any {
   Cwd,
   CwdRes,
   Dial,
+  DynamicLibLoad,
+  DynamicLibLoadRes,
+  DynamicLibFnLoad,
+  DynamicLibFnLoadRes,
+  DynamicLibFnCall,
+  DynamicLibFnCallRes,
   Environ,
   EnvironRes,
   Exit,
@@ -139,7 +145,8 @@ enum ErrorKind: byte {
 
   // binding errors
   BindingError,
-  BindingOpIdNotFound,
+  BindingBadLibId,
+  BindingBadFnId,
 }
 
 table Cwd {}
@@ -152,7 +159,6 @@ enum MediaType: byte {
   JavaScript = 0,
   TypeScript,
   Json,
-  Dylib,
   Unknown
 }
 
@@ -582,11 +588,29 @@ table Seek {
 
 table GetRandomValues {}
 
-table CustomOp {
-  op_id: uint32;
+table DynamicLibLoad {
+  filename: string;
 }
 
-table CustomOpRes {
+table DynamicLibLoadRes {
+  lib_id: uint32;
+}
+
+table DynamicLibFnLoad {
+  lib_id: uint32;
+  name: string;
+}
+
+table DynamicLibFnLoadRes {
+  fn_id: uint32;
+}
+
+table DynamicLibFnCall {
+  fn_id: uint32;
+  data: [ubyte];
+}
+
+table DynamicLibFnCallRes {
   data: [ubyte];
 }
 

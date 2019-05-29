@@ -88,12 +88,13 @@ export const args: string[] = [];
 /** @internal */
 export { core } from "./core";
 
-export { 
+export {
   DynamicLibFn,
   DynamicLibImpl as DynamicLib,
+  loadDylib,
   platformFilenamePrefix,
   platformFilenameExtension,
-  platformFilename,
+  platformFilename
 } from "./dlopen";
 
 // TODO Don't expose Console nor stringifyArgs.

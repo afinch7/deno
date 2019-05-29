@@ -1,3 +1,3 @@
-import { testOp } from "../target/release/libtest_binding_plugin.so";
+import { testOp } from "../test_binding/main.ts";
 
-console.log(testOp({ name: "test" }));
+console.log(testOp({ data: "test", zeroCopyData: { some: "data" } }));

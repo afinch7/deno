@@ -137,7 +137,7 @@ pub struct DenoPermissions {
   pub allow_run: PermissionAccessor,
   pub allow_hrtime: PermissionAccessor,
   // TODO(afinch7) maybe add permissions whitelist for this?
-  pub allow_native_bindings: PermissionAccessor,
+  pub allow_dlopen: PermissionAccessor,
   pub no_prompts: AtomicBool,
 }
 
@@ -155,9 +155,7 @@ impl DenoPermissions {
       allow_env: PermissionAccessor::from(flags.allow_env),
       allow_run: PermissionAccessor::from(flags.allow_run),
       allow_hrtime: PermissionAccessor::from(flags.allow_hrtime),
-      allow_native_bindings: PermissionAccessor::from(
-        flags.allow_native_bindings,
-      ),
+      allow_dlopen: PermissionAccessor::from(flags.allow_dlopen),
       no_prompts: AtomicBool::new(flags.no_prompts),
     }
   }
@@ -321,15 +319,15 @@ impl DenoPermissions {
     }
   }
 
-  pub fn check_native_bindings(&self, name: &str) -> DenoResult<()> {
-    match self.allow_native_bindings.get_state() {
+  pub fn check_dlopen(&self, filename: &str) -> DenoResult<()> {
+    match self.allow_dlopen.get_state() {
       PermissionAccessorState::Allow => Ok(()),
       PermissionAccessorState::Ask => match self.try_permissions_prompt(
-        &format!("to load native bindings from: {}", name),
+        &format!("to load native bindings from: {}", filename),
       ) {
         Err(e) => Err(e),
         Ok(v) => {
-          self.allow_native_bindings.update_with_prompt_result(&v);
+          self.allow_dlopen.update_with_prompt_result(&v);
           v.check()?;
           Ok(())
         }
@@ -374,8 +372,8 @@ impl DenoPermissions {
     self.allow_hrtime.is_allow()
   }
 
-  pub fn allows_native_bindings(&self) -> bool {
-    self.allow_native_bindings.is_allow()
+  pub fn allows_dlopen(&self) -> bool {
+    self.allow_dlopen.is_allow()
   }
 
   pub fn revoke_run(&self) -> DenoResult<()> {
@@ -408,8 +406,8 @@ impl DenoPermissions {
     Ok(())
   }
 
-  pub fn revoke_native_bindings(&self) -> DenoResult<()> {
-    self.allow_native_bindings.revoke();
+  pub fn revoke_dlopen(&self) -> DenoResult<()> {
+    self.allow_dlopen.revoke();
     Ok(())
   }
 }

@@ -25,7 +25,7 @@ pub type OpDispatchFn =
 macro_rules! declare_binding_function {
   ($name:ident, $fn:path) => {
     #[no_mangle]
-    pub extern "C" fn $name(is_sync: bool, data: &[u8], zero_copy: Option<PinnedBuf>) -> OpResult {
+    pub fn $name(is_sync: bool, data: &[u8], zero_copy: Option<PinnedBuf>) -> OpResult {
       // make sure the constructor is the correct type.
       let dispatch_fn: $crate::dispatch::OpDispatchFn = $fn;
       dispatch_fn(is_sync, data, zero_copy)

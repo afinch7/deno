@@ -92,6 +92,7 @@ where
   }
 }
 
+// TODO(ry) Move this to main.rs
 pub fn print_file_info(worker: &Worker, url: &str) {
   let maybe_out =
     worker::fetch_module_meta_data_and_maybe_compile(&worker.state, url, ".");
@@ -99,8 +100,7 @@ pub fn print_file_info(worker: &Worker, url: &str) {
     println!("{}", err);
     return;
   }
-  // TODO(afinch7) print out info about loaded bindings as well?
-  let (out, _) = maybe_out.unwrap();
+  let out = maybe_out.unwrap();
 
   println!("{} {}", ansi::bold("local:".to_string()), &(out.filename));
 
@@ -298,9 +298,6 @@ fn run_script(flags: DenoFlags, argv: Vec<String>) {
   });
   tokio_util::run(main_future);
 }
-
-// TODO(afinch7) add debug command for native bindings, so we can print out
-// it's source code.
 
 fn main() {
   #[cfg(windows)]

@@ -24,7 +24,7 @@ pub struct DenoFlags {
   pub allow_env: bool,
   pub allow_run: bool,
   pub allow_hrtime: bool,
-  pub allow_native_bindings: bool,
+  pub allow_dlopen: bool,
   pub no_prompts: bool,
   pub no_fetch: bool,
   pub v8_flags: Option<Vec<String>>,
@@ -236,8 +236,8 @@ ability to spawn subprocesses.
             .long("allow-hrtime")
             .help("Allow high resolution time measurement"),
         ).arg(
-          Arg::with_name("allow-native-bindings")
-            .long("allow-native-bindings")
+          Arg::with_name("allow-dlopen")
+            .long("allow-dlopen")
             .help("Allow loading native bindings"),
         ).arg(
           Arg::with_name("allow-all")
@@ -390,8 +390,8 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
     if run_matches.is_present("allow-hrtime") {
       flags.allow_hrtime = true;
     }
-    if run_matches.is_present("allow-native-bindings") {
-      flags.allow_native_bindings = true;
+    if run_matches.is_present("allow-dlopen") {
+      flags.allow_dlopen = true;
     }
     if run_matches.is_present("allow-all") {
       flags.allow_read = true;
@@ -401,7 +401,7 @@ pub fn parse_flags(matches: ArgMatches) -> DenoFlags {
       flags.allow_read = true;
       flags.allow_write = true;
       flags.allow_hrtime = true;
-      flags.allow_native_bindings = true;
+      flags.allow_dlopen = true;
     }
     if run_matches.is_present("no-prompt") {
       flags.no_prompts = true;
@@ -666,7 +666,7 @@ mod tests {
         allow_read: true,
         allow_write: true,
         allow_hrtime: true,
-        allow_native_bindings: true,
+        allow_dlopen: true,
         ..DenoFlags::default()
       }
     );

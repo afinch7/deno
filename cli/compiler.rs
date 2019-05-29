@@ -26,7 +26,6 @@ pub struct ModuleMetaData {
   pub maybe_output_code: Option<Vec<u8>>,
   pub maybe_source_map_filename: Option<String>,
   pub maybe_source_map: Option<Vec<u8>>,
-  pub maybe_binding_plugin: Option<Arc<BindingLoadResult>>,
 }
 
 impl ModuleMetaData {
@@ -206,7 +205,6 @@ mod tests {
         maybe_output_code: None,
         maybe_source_map_filename: None,
         maybe_source_map: None,
-        maybe_binding_plugin: None,
       };
 
       out = compile_sync(ThreadSafeState::mock(), specifier, &referrer, &out)

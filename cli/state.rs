@@ -1,4 +1,5 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+use crate::bindings::{DylibFnId, DylibId};
 use crate::deno_dir;
 use crate::errors::DenoResult;
 use crate::flags;
@@ -12,6 +13,8 @@ use crate::worker::Worker;
 use deno::Buf;
 use deno::Op;
 use deno::PinnedBuf;
+use deno_lib_bindings::dispatch::OpDispatchFn;
+use dlopen::symbor::Library;
 use futures::future::Shared;
 use std;
 use std::collections::HashMap;
@@ -19,9 +22,10 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::RwLock;
 use std::time::Instant;
 use tokio::sync::mpsc as async_mpsc;
 
@@ -73,6 +77,11 @@ pub struct State {
   /// around the fact that --reload will force multiple compilations of the same
   /// module.
   compiled: Mutex<HashSet<String>>,
+
+  pub next_dylib_id: AtomicU32,
+  pub loaded_dylibs: RwLock<HashMap<DylibId, Library>>,
+  pub next_dylib_fn_id: AtomicU32,
+  pub loaded_dylib_functions: RwLock<HashMap<DylibFnId, OpDispatchFn>>,
 }
 
 impl Clone for ThreadSafeState {
@@ -165,6 +174,10 @@ impl ThreadSafeState {
       dispatch_selector,
       progress,
       compiled: Mutex::new(HashSet::new()),
+      next_dylib_id: AtomicU32::new(0),
+      loaded_dylibs: RwLock::new(HashMap::new()),
+      next_dylib_fn_id: AtomicU32::new(0),
+      loaded_dylib_functions: RwLock::new(HashMap::new()),
     }))
   }
 
@@ -223,6 +236,11 @@ impl ThreadSafeState {
   #[inline]
   pub fn check_run(&self) -> DenoResult<()> {
     self.permissions.check_run()
+  }
+
+  #[inline]
+  pub fn check_dlopen(&self, filename: &str) -> DenoResult<()> {
+    self.permissions.check_dlopen(filename)
   }
 
   #[cfg(test)]

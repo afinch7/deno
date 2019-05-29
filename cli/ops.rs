@@ -1,6 +1,7 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use atty;
 use crate::ansi;
+use crate::bindings;
 use crate::deno_dir::resolve_path;
 use crate::dispatch_minimal::dispatch_minimal;
 use crate::dispatch_minimal::parse_min_record;
@@ -31,6 +32,8 @@ use deno::Buf;
 use deno::JSError;
 use deno::Op;
 use deno::PinnedBuf;
+use deno_lib_bindings::dispatch::OpDispatchFn;
+use deno_lib_bindings::dispatch::OpResult as BindingOpResult;
 use flatbuffers::FlatBufferBuilder;
 use futures;
 use futures::Async;
@@ -47,6 +50,7 @@ use std::fs;
 use std::net::Shutdown;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tokio;
 use tokio::net::TcpListener;
@@ -189,6 +193,9 @@ pub fn op_selector_std(inner_type: msg::Any) -> Option<OpCreator> {
     msg::Any::CreateWorker => Some(op_create_worker),
     msg::Any::Cwd => Some(op_cwd),
     msg::Any::Dial => Some(op_dial),
+    msg::Any::DynamicLibLoad => Some(op_dynamic_lib_load),
+    msg::Any::DynamicLibFnLoad => Some(op_dynamic_lib_fn_load),
+    msg::Any::DynamicLibFnCall => Some(op_dynamic_lib_fn_call),
     msg::Any::Environ => Some(op_env),
     msg::Any::Exit => Some(op_exit),
     msg::Any::Fetch => Some(op_fetch),
@@ -2193,4 +2200,136 @@ fn op_get_random_values(
 ) -> Box<OpWithError> {
   thread_rng().fill(&mut data.unwrap()[..]);
   Box::new(ok_future(empty_buf()))
+}
+
+fn op_dynamic_lib_load(
+  state: &ThreadSafeState,
+  base: &msg::Base<'_>,
+  _data: Option<PinnedBuf>,
+) -> Box<OpWithError> {
+  let cmd_id = base.cmd_id();
+  let inner = base.inner_as_dynamic_lib_load().unwrap();
+  let (filename, filename_) = match resolve_path(inner.filename().unwrap()) {
+    Err(err) => return odd_future(err),
+    Ok(v) => v,
+  };
+
+  if let Err(e) = state.check_dlopen(&filename_) {
+    return odd_future(e);
+  }
+
+  Box::new(futures::future::result(move || -> OpResult {
+    let lib = bindings::load_binding(filename)?;
+    let lib_id: bindings::DylibId =
+      state.next_dylib_id.fetch_add(1, Ordering::SeqCst);
+
+    let mut loaded_libs = state.loaded_dylibs.write().unwrap();
+    loaded_libs.insert(lib_id, lib);
+
+    let builder = &mut FlatBufferBuilder::new();
+    let msg_inner = msg::DynamicLibLoadRes::create(
+      builder,
+      &msg::DynamicLibLoadResArgs { lib_id },
+    );
+
+    Ok(serialize_response(
+      cmd_id,
+      builder,
+      msg::BaseArgs {
+        inner: Some(msg_inner.as_union_value()),
+        inner_type: msg::Any::DynamicLibLoadRes,
+        ..Default::default()
+      },
+    ))
+  }()))
+}
+
+fn op_dynamic_lib_fn_load(
+  state: &ThreadSafeState,
+  base: &msg::Base<'_>,
+  _data: Option<PinnedBuf>,
+) -> Box<OpWithError> {
+  let cmd_id = base.cmd_id();
+  let inner = base.inner_as_dynamic_lib_fn_load().unwrap();
+  let lib_id = inner.lib_id();
+  let name = inner.name().unwrap();
+
+  Box::new(futures::future::result(move || -> OpResult {
+    let loaded_libs = state.loaded_dylibs.read().unwrap();
+    let lib = match loaded_libs.get(&lib_id) {
+      Some(lib) => lib,
+      None => return Err(errors::binding_bad_lib_id()),
+    };
+
+    let fun: OpDispatchFn =
+      *unsafe { lib.symbol::<OpDispatchFn>(name) }.unwrap();
+    let fn_id: bindings::DylibId =
+      state.next_dylib_fn_id.fetch_add(1, Ordering::SeqCst);
+    let mut loaded_fns = state.loaded_dylib_functions.write().unwrap();
+    loaded_fns.insert(fn_id, fun);
+
+    let builder = &mut FlatBufferBuilder::new();
+    let msg_inner = msg::DynamicLibFnLoadRes::create(
+      builder,
+      &msg::DynamicLibFnLoadResArgs { fn_id },
+    );
+
+    Ok(serialize_response(
+      cmd_id,
+      builder,
+      msg::BaseArgs {
+        inner: Some(msg_inner.as_union_value()),
+        inner_type: msg::Any::DynamicLibFnLoadRes,
+        ..Default::default()
+      },
+    ))
+  }()))
+}
+
+fn op_dynamic_lib_fn_call(
+  state: &ThreadSafeState,
+  base: &msg::Base<'_>,
+  data: Option<PinnedBuf>,
+) -> Box<OpWithError> {
+  let cmd_id = base.cmd_id();
+  let inner = base.inner_as_dynamic_lib_fn_call().unwrap();
+  let fn_id = inner.fn_id();
+
+  let loaded_fns = state.loaded_dylib_functions.read().unwrap();
+  let fun = match loaded_fns.get(&fn_id) {
+    Some(fun) => fun,
+    None => return odd_future(errors::binding_bad_fn_id()),
+  };
+
+  let result = fun(base.sync(), inner.data().unwrap(), data);
+
+  let op = match (base.sync(), result) {
+    (true, BindingOpResult::Sync(result)) => {
+      Box::new(futures::future::result(result))
+    }
+    (false, BindingOpResult::Async(result)) => result,
+    (is_sync, _) => panic!(
+      "Expected binding result's sync to match call. is_sync: {}",
+      is_sync
+    ),
+  };
+
+  Box::new(op.map_err(DenoError::from).and_then(move |buf| {
+    let builder = &mut FlatBufferBuilder::new();
+    let data = Some(builder.create_vector(&buf));
+    let msg_inner = msg::DynamicLibFnCallRes::create(
+      builder,
+      &msg::DynamicLibFnCallResArgs { data },
+    );
+
+    Ok(serialize_response(
+      cmd_id,
+      builder,
+      msg::BaseArgs {
+        inner: Some(msg_inner.as_union_value()),
+        inner_type: msg::Any::DynamicLibFnCallRes,
+        ..Default::default()
+      },
+    ))
+  }))
 }
