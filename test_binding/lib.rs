@@ -1,6 +1,6 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use deno::{PinnedBuf, Buf};
-use deno::bindings::{BindingOpResult};
+use deno::bindings::{BindingOpResult, new_binding_error};
 use futures;
 
 #[macro_use]
@@ -10,7 +10,7 @@ pub fn op_test_op(
   is_sync: bool,
   data: &[u8],
   zero_copy: Option<PinnedBuf>,
-) -> OpResult {
+) -> BindingOpResult {
     if !is_sync {
         return BindingOpResult::Async(Box::new(futures::future::err(new_binding_error(String::from("Async not supported!")))));
     }
