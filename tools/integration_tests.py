@@ -131,6 +131,7 @@ def main():
         build_dir = os.environ["DENO_BUILD_PATH"]
     else:
         build_dir = os.path.join(root_path, "target", target)
+        os.environ["DENO_BUILD_PATH"] = build_dir
 
     deno_dir = os.path.join(build_dir, ".deno_test")
     if os.path.isdir(deno_dir):
