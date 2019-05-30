@@ -11,12 +11,12 @@ union Any {
   Cwd,
   CwdRes,
   Dial,
-  DynamicLibLoad,
-  DynamicLibLoadRes,
-  DynamicLibFnLoad,
-  DynamicLibFnLoadRes,
-  DynamicLibFnCall,
-  DynamicLibFnCallRes,
+  DlOpen,
+  DlOpenRes,
+  DlSym,
+  DlSymRes,
+  DlCall,
+  DlCallRes,
   Environ,
   EnvironRes,
   Exit,
@@ -590,29 +590,29 @@ table Seek {
 
 table GetRandomValues {}
 
-table DynamicLibLoad {
+table DlOpen {
   filename: string;
 }
 
-table DynamicLibLoadRes {
+table DlOpenRes {
   lib_id: uint32;
 }
 
-table DynamicLibFnLoad {
+table DlSym {
   lib_id: uint32;
   name: string;
 }
 
-table DynamicLibFnLoadRes {
+table DlSymRes {
   fn_id: uint32;
 }
 
-table DynamicLibFnCall {
+table DlCall {
   fn_id: uint32;
   data: [ubyte];
 }
 
-table DynamicLibFnCallRes {
+table DlCallRes {
   data: [ubyte];
 }
 

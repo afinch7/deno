@@ -5,27 +5,23 @@ import * as flatbuffers from "./flatbuffers";
 import { assert } from "./util";
 import { build } from "./build";
 
-export type DynamicLibFnCallReturn = Uint8Array | undefined;
+export type DlCallReturn = Uint8Array | undefined;
 
-function callDynamicLibFnSync(
+function dlCallSync(
   fnId: number,
   data: Uint8Array,
   zeroCopy?: ArrayBufferView
-): DynamicLibFnCallReturn {
+): DlCallReturn {
   const builder = flatbuffers.createBuilder();
   const data_ = builder.createString(data);
-  const inner = msg.DynamicLibFnCall.createDynamicLibFnCall(
-    builder,
-    fnId,
-    data_
-  );
-  const baseRes = sendSync(builder, msg.Any.DynamicLibFnCall, inner, zeroCopy);
+  const inner = msg.DlCall.createDlCall(builder, fnId, data_);
+  const baseRes = sendSync(builder, msg.Any.DlCall, inner, zeroCopy);
   assert(baseRes != null);
   assert(
-    msg.Any.DynamicLibFnCallRes === baseRes!.innerType(),
+    msg.Any.DlCallRes === baseRes!.innerType(),
     `base.innerType() unexpectedly is ${baseRes!.innerType()}`
   );
-  const res = new msg.DynamicLibFnCallRes();
+  const res = new msg.DlCallRes();
   assert(baseRes!.inner(res) != null);
 
   const dataArray = res.dataArray();
@@ -35,30 +31,21 @@ function callDynamicLibFnSync(
   return dataArray;
 }
 
-async function callDynamicLibFnAsync(
+async function dlCallAsync(
   fnId: number,
   data: Uint8Array,
   zeroCopy?: ArrayBufferView
-): Promise<DynamicLibFnCallReturn> {
+): Promise<DlCallReturn> {
   const builder = flatbuffers.createBuilder();
   const data_ = builder.createString(data);
-  const inner = msg.DynamicLibFnCall.createDynamicLibFnCall(
-    builder,
-    fnId,
-    data_
-  );
-  const baseRes = await sendAsync(
-    builder,
-    msg.Any.DynamicLibFnCall,
-    inner,
-    zeroCopy
-  );
+  const inner = msg.DlCall.createDlCall(builder, fnId, data_);
+  const baseRes = await sendAsync(builder, msg.Any.DlCall, inner, zeroCopy);
   assert(baseRes != null);
   assert(
-    msg.Any.DynamicLibFnCallRes === baseRes!.innerType(),
+    msg.Any.DlCallRes === baseRes!.innerType(),
     `base.innerType() unexpectedly is ${baseRes!.innerType()}`
   );
-  const res = new msg.DynamicLibFnCallRes();
+  const res = new msg.DlCallRes();
   assert(baseRes!.inner(res) != null);
 
   const dataArray = res.dataArray();
@@ -68,35 +55,28 @@ async function callDynamicLibFnAsync(
   return dataArray;
 }
 
-function loadDynamicLibFn(libId: number, name: string): number {
+function dlSym(libId: number, name: string): number {
   const builder = flatbuffers.createBuilder();
   const name_ = builder.createString(name);
-  const inner = msg.DynamicLibFnLoad.createDynamicLibFnLoad(
-    builder,
-    libId,
-    name_
-  );
-  const baseRes = sendSync(builder, msg.Any.DynamicLibFnLoad, inner);
+  const inner = msg.DlSym.createDlSym(builder, libId, name_);
+  const baseRes = sendSync(builder, msg.Any.DlSym, inner);
   assert(baseRes != null);
   assert(
-    msg.Any.DynamicLibFnLoadRes === baseRes!.innerType(),
+    msg.Any.DlSymRes === baseRes!.innerType(),
     `base.innerType() unexpectedly is ${baseRes!.innerType()}`
   );
-  const res = new msg.DynamicLibFnLoadRes();
+  const res = new msg.DlSymRes();
   assert(baseRes!.inner(res) != null);
   return res.fnId();
 }
 
 export interface DynamicLibFn {
-  dispatchSync(
-    data: Uint8Array,
-    zeroCopy?: ArrayBufferView
-  ): DynamicLibFnCallReturn;
+  dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): DlCallReturn;
 
   dispatchAsync(
     data: Uint8Array,
     zeroCopy?: ArrayBufferView
-  ): Promise<DynamicLibFnCallReturn>;
+  ): Promise<DlCallReturn>;
 }
 
 // A loaded dynamic lib function.
@@ -108,37 +88,34 @@ class DynamicLibFnImpl implements DynamicLibFn {
   private readonly fnId: number;
 
   constructor(dlId: number, name: string) {
-    this.fnId = loadDynamicLibFn(dlId, name);
+    this.fnId = dlSym(dlId, name);
   }
 
-  dispatchSync(
-    data: Uint8Array,
-    zeroCopy?: ArrayBufferView
-  ): DynamicLibFnCallReturn {
+  dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): DlCallReturn {
     // Like the prior Deno.nativeBindings.sendSync
-    return callDynamicLibFnSync(this.fnId, data, zeroCopy);
+    return dlCallSync(this.fnId, data, zeroCopy);
   }
 
   async dispatchAsync(
     data: Uint8Array,
     zeroCopy?: ArrayBufferView
-  ): Promise<DynamicLibFnCallReturn> {
+  ): Promise<DlCallReturn> {
     // Like the prior Deno.nativeBindings.sendSync but async
-    return callDynamicLibFnAsync(this.fnId, data, zeroCopy);
+    return dlCallAsync(this.fnId, data, zeroCopy);
   }
 }
 
-function loadDynamicLib(filename: string): number {
+function dlOpen(filename: string): number {
   const builder = flatbuffers.createBuilder();
   const filename_ = builder.createString(filename);
-  const inner = msg.DynamicLibLoad.createDynamicLibLoad(builder, filename_);
-  const baseRes = sendSync(builder, msg.Any.DynamicLibLoad, inner);
+  const inner = msg.DlOpen.createDlOpen(builder, filename_);
+  const baseRes = sendSync(builder, msg.Any.DlOpen, inner);
   assert(baseRes != null);
   assert(
-    msg.Any.DynamicLibLoadRes === baseRes!.innerType(),
+    msg.Any.DlOpenRes === baseRes!.innerType(),
     `base.innerType() unexpectedly is ${baseRes!.innerType()}`
   );
-  const res = new msg.DynamicLibLoadRes();
+  const res = new msg.DlOpenRes();
   assert(baseRes!.inner(res) != null);
   return res.libId();
 }
@@ -158,7 +135,7 @@ export class DynamicLibImpl implements DynamicLib {
 
   // @internal
   constructor(libraryPath: string) {
-    this.libId = loadDynamicLib(libraryPath);
+    this.libId = dlOpen(libraryPath);
   }
 
   loadFn(name: string): DynamicLibFn {
@@ -173,13 +150,13 @@ export class DynamicLibImpl implements DynamicLib {
   }
 }
 
-export function loadDylib(filename: string): DynamicLib {
+export function dlopen(filename: string): DynamicLib {
   return new DynamicLibImpl(filename);
 }
 
-export type PlatformFilePrefix = "lib" | "";
+export type DlNamePrefix = "lib" | "";
 
-export const platformFilenamePrefix = ((): PlatformFilePrefix => {
+const dlNamePrefix = ((): DlNamePrefix => {
   switch (build.os) {
     case "linux":
     case "mac":
@@ -190,9 +167,9 @@ export const platformFilenamePrefix = ((): PlatformFilePrefix => {
   }
 })();
 
-export type PlatformFilenameExtension = "so" | "dylib" | "dll";
+export type DlNameExtension = "so" | "dylib" | "dll";
 
-export const platformFilenameExtension = ((): PlatformFilenameExtension => {
+const dlNameExtension = ((): DlNameExtension => {
   switch (build.os) {
     case "linux":
       return "so";
@@ -203,8 +180,6 @@ export const platformFilenameExtension = ((): PlatformFilenameExtension => {
   }
 })();
 
-export function platformFilename(filenameBase: string): string {
-  return (
-    platformFilenamePrefix + filenameBase + "." + platformFilenameExtension
-  );
+export function dlname(filenameBase: string): string {
+  return dlNamePrefix + filenameBase + "." + dlNameExtension;
 }

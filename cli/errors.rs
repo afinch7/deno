@@ -2,8 +2,8 @@
 use crate::js_errors::JSErrorColor;
 pub use crate::msg::ErrorKind;
 use crate::resolve_addr::ResolveAddrError;
+use deno::bindings;
 use deno::JSError;
-use deno_lib_bindings;
 use dlopen;
 use hyper;
 #[cfg(unix)]
@@ -26,7 +26,7 @@ enum Repr {
   IoErr(io::Error),
   UrlErr(url::ParseError),
   HyperErr(hyper::Error),
-  BindingErr(deno_lib_bindings::errors::BindingError),
+  BindingErr(bindings::BindingError),
 }
 
 pub fn new(kind: ErrorKind, msg: String) -> DenoError {
@@ -181,9 +181,9 @@ impl From<dlopen::Error> for DenoError {
   }
 }
 
-impl From<deno_lib_bindings::errors::BindingError> for DenoError {
+impl From<bindings::BindingError> for DenoError {
   #[inline]
-  fn from(err: deno_lib_bindings::errors::BindingError) -> Self {
+  fn from(err: bindings::BindingError) -> Self {
     Self {
       repr: Repr::BindingErr(err),
     }

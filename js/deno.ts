@@ -91,10 +91,8 @@ export { core } from "./core";
 export {
   DynamicLibFn,
   DynamicLibImpl as DynamicLib,
-  loadDylib,
-  platformFilenamePrefix,
-  platformFilenameExtension,
-  platformFilename
+  dlopen,
+  dlname
 } from "./dlopen";
 
 // TODO Don't expose Console nor stringifyArgs.

@@ -4,6 +4,7 @@ extern crate log;
 extern crate futures;
 extern crate libc;
 
+pub mod bindings;
 mod flags;
 mod isolate;
 mod js_errors;

@@ -1,6 +1,8 @@
-// Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-use std::io;
+use crate::isolate::Buf;
+use crate::libdeno::PinnedBuf;
+use futures::Future;
 use std::fmt;
+use std::io;
 
 pub type BindingResult<T> = std::result::Result<T, BindingError>;
 
@@ -53,4 +55,32 @@ impl From<io::Error> for BindingError {
       repr: Repr::IoErr(err),
     }
   }
+}
+
+pub type BindingOpAsyncFuture =
+  Box<dyn Future<Item = Buf, Error = BindingError> + Send>;
+
+pub enum BindingOpResult {
+  Sync(BindingResult<Buf>),
+  Async(BindingOpAsyncFuture),
+}
+
+/// Dispatch funciton type
+/// base is a placeholder value for now not sure what we want to use there
+pub type BindingOpDispatchFn =
+  fn(is_sync: bool, data: &[u8], zeroCopy: Option<PinnedBuf>)
+    -> BindingOpResult;
+
+#[macro_export]
+macro_rules! declare_binding_function {
+  ($name:ident, $fn:path) => {
+    #[no_mangle]
+    pub fn $name(
+      is_sync: bool,
+      data: &[u8],
+      zero_copy: Option<PinnedBuf>,
+    ) -> BindingOpResult {
+      $fn(is_sync, data, zero_copy)
+    }
+  };
 }

@@ -10,10 +10,10 @@ use crate::progress::Progress;
 use crate::resources;
 use crate::resources::ResourceId;
 use crate::worker::Worker;
+use deno::bindings::BindingOpDispatchFn;
 use deno::Buf;
 use deno::Op;
 use deno::PinnedBuf;
-use deno_lib_bindings::dispatch::OpDispatchFn;
 use dlopen::symbor::Library;
 use futures::future::Shared;
 use std;
@@ -81,7 +81,7 @@ pub struct State {
   pub next_dylib_id: AtomicU32,
   pub loaded_dylibs: RwLock<HashMap<DylibId, Library>>,
   pub next_dylib_fn_id: AtomicU32,
-  pub loaded_dylib_functions: RwLock<HashMap<DylibFnId, OpDispatchFn>>,
+  pub loaded_dylib_functions: RwLock<HashMap<DylibFnId, BindingOpDispatchFn>>,
 }
 
 impl Clone for ThreadSafeState {
