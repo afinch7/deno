@@ -16,8 +16,12 @@ use crate::http_body::HttpBody;
 use crate::repl::Repl;
 use crate::state::WorkerChannels;
 
+use deno::bindings::BindingOpDispatchFn;
+use deno::bindings::BindingOpResult;
 use deno::Buf;
+use deno::PinnedBuf;
 
+use dlopen::symbor::Library;
 use futures;
 use futures::Future;
 use futures::Poll;
@@ -26,6 +30,7 @@ use futures::Stream;
 use hyper;
 use std;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::io::{Error, Read, Seek, SeekFrom, Write};
 use std::net::{Shutdown, SocketAddr};
 use std::process::ExitStatus;
@@ -100,6 +105,8 @@ enum Repr {
   ChildStdout(tokio_process::ChildStdout),
   ChildStderr(tokio_process::ChildStderr),
   Worker(WorkerChannels),
+  Dylib(Library),
+  DylibFn(BindingOpDispatchFn),
 }
 
 /// If the given rid is open, this returns the type of resource, E.G. "worker".
@@ -142,6 +149,8 @@ fn inspect_repr(repr: &Repr) -> String {
     Repr::ChildStdout(_) => "childStdout",
     Repr::ChildStderr(_) => "childStderr",
     Repr::Worker(_) => "worker",
+    Repr::Dylib(_) => "dylib",
+    Repr::DylibFn(_) => "dylibFn",
   };
 
   String::from(h_repr)
@@ -557,4 +566,44 @@ pub fn seek(
     }
     _ => panic!("cannot seek"),
   }
+}
+
+pub fn add_dl<P: AsRef<OsStr>>(lib_path: P) -> DenoResult<Resource> {
+  debug!("LOADING NATIVE BINDING LIB: {:#?}", lib_path.as_ref());
+
+  let lib = Library::open(lib_path)?;
+
+  let rid = new_rid();
+  let mut tg = RESOURCE_TABLE.lock().unwrap();
+  let r = tg.insert(rid, Repr::Dylib(lib));
+  assert!(r.is_none());
+  Ok(Resource { rid })
+}
+
+pub fn add_dl_fn(lib_resource: ResourceId, name: &str) -> DenoResult<Resource> {
+  let mut tg = RESOURCE_TABLE.lock().unwrap();
+  let lib = match tg.get(&lib_resource) {
+    Some(Repr::Dylib(lib)) => lib,
+    Some(_) | None => return Err(errors::bad_resource()),
+  };
+  let fun = *unsafe { lib.symbol::<BindingOpDispatchFn>(name) }?;
+  let rid = new_rid();
+  let r = tg.insert(rid, Repr::DylibFn(fun));
+  assert!(r.is_none());
+  Ok(Resource { rid })
+}
+
+pub fn call_dl_fn(
+  fn_resource: ResourceId,
+  is_sync: bool,
+  data: &[u8],
+  zero_copy: Option<PinnedBuf>,
+) -> DenoResult<BindingOpResult> {
+  let tg = RESOURCE_TABLE.lock().unwrap();
+  let fun = match tg.get(&fn_resource) {
+    Some(Repr::DylibFn(fun)) => fun,
+    Some(_) | None => return Err(errors::bad_resource()),
+  };
+  let result = fun(is_sync, data, zero_copy);
+  Ok(result)
 }

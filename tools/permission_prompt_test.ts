@@ -7,7 +7,7 @@ const {
   makeTempDirSync,
   readFileSync,
   run,
-  loadDylib
+  dlopen
 } = Deno;
 
 const firstCheckFailedMessage = "First check failed";
@@ -78,14 +78,14 @@ const test = {
   },
   needsDlopen: (): void => {
     try {
-      const dlib = loadDylib("some/fake/path");
+      const dlib = dlopen("some/fake/path");
     } catch (e) {
       if (e.kind === Deno.ErrorKind.PermissionDenied) {
         console.log(firstCheckFailedMessage);
       }
     }
     try {
-      const dlib = loadDylib("some/fake/path");
+      const dlib = dlopen("some/fake/path");
     } catch (e) {
       if (e.kind === Deno.ErrorKind.PermissionDenied) {
         throw e;

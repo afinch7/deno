@@ -14,7 +14,6 @@ extern crate nix;
 extern crate rand;
 
 mod ansi;
-mod bindings;
 pub mod compiler;
 pub mod deno_dir;
 mod dispatch_minimal;

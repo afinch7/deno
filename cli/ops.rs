@@ -1,7 +1,6 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use atty;
 use crate::ansi;
-use crate::bindings;
 use crate::deno_dir::resolve_path;
 use crate::dispatch_minimal::dispatch_minimal;
 use crate::dispatch_minimal::parse_min_record;
@@ -27,7 +26,6 @@ use crate::tokio_write;
 use crate::version;
 use crate::worker::root_specifier_to_url;
 use crate::worker::Worker;
-use deno::bindings::BindingOpDispatchFn;
 use deno::bindings::BindingOpResult;
 use deno::js_check;
 use deno::Buf;
@@ -50,7 +48,6 @@ use std::fs;
 use std::net::Shutdown;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tokio;
 use tokio::net::TcpListener;
@@ -2219,16 +2216,11 @@ fn op_dl_open(
   }
 
   Box::new(futures::future::result(move || -> OpResult {
-    let lib = bindings::load_binding(filename)?;
-    let lib_id: bindings::DylibId =
-      state.next_dylib_id.fetch_add(1, Ordering::SeqCst);
-
-    let mut loaded_libs = state.loaded_dylibs.write().unwrap();
-    loaded_libs.insert(lib_id, lib);
+    let lib = resources::add_dl(filename)?;
 
     let builder = &mut FlatBufferBuilder::new();
     let msg_inner =
-      msg::DlOpenRes::create(builder, &msg::DlOpenResArgs { lib_id });
+      msg::DlOpenRes::create(builder, &msg::DlOpenResArgs { lib_id: lib.rid });
 
     Ok(serialize_response(
       cmd_id,
@@ -2243,7 +2235,7 @@ fn op_dl_open(
 }
 
 fn op_dl_sym(
-  state: &ThreadSafeState,
+  _state: &ThreadSafeState,
   base: &msg::Base<'_>,
   _data: Option<PinnedBuf>,
 ) -> Box<OpWithError> {
@@ -2253,22 +2245,11 @@ fn op_dl_sym(
   let name = inner.name().unwrap();
 
   Box::new(futures::future::result(move || -> OpResult {
-    let loaded_libs = state.loaded_dylibs.read().unwrap();
-    let lib = match loaded_libs.get(&lib_id) {
-      Some(lib) => lib,
-      None => return Err(errors::binding_bad_lib_id()),
-    };
-
-    let fun: BindingOpDispatchFn =
-      *unsafe { lib.symbol::<BindingOpDispatchFn>(name) }.unwrap();
-    let fn_id: bindings::DylibId =
-      state.next_dylib_fn_id.fetch_add(1, Ordering::SeqCst);
-    let mut loaded_fns = state.loaded_dylib_functions.write().unwrap();
-    loaded_fns.insert(fn_id, fun);
+    let fun = resources::add_dl_fn(lib_id, name)?;
 
     let builder = &mut FlatBufferBuilder::new();
     let msg_inner =
-      msg::DlSymRes::create(builder, &msg::DlSymResArgs { fn_id });
+      msg::DlSymRes::create(builder, &msg::DlSymResArgs { fn_id: fun.rid });
 
     Ok(serialize_response(
       cmd_id,
@@ -2283,7 +2264,7 @@ fn op_dl_sym(
 }
 
 fn op_dl_call(
-  state: &ThreadSafeState,
+  _state: &ThreadSafeState,
   base: &msg::Base<'_>,
   data: Option<PinnedBuf>,
 ) -> Box<OpWithError> {
@@ -2291,13 +2272,15 @@ fn op_dl_call(
   let inner = base.inner_as_dl_call().unwrap();
   let fn_id = inner.fn_id();
 
-  let loaded_fns = state.loaded_dylib_functions.read().unwrap();
-  let fun = match loaded_fns.get(&fn_id) {
-    Some(fun) => fun,
-    None => return odd_future(errors::binding_bad_fn_id()),
+  let result = match resources::call_dl_fn(
+    fn_id,
+    base.sync(),
+    inner.data().unwrap(),
+    data,
+  ) {
+    Ok(result) => result,
+    Err(err) => return odd_future(err),
   };
-
-  let result = fun(base.sync(), inner.data().unwrap(), data);
 
   let op = match (base.sync(), result) {
     (true, BindingOpResult::Sync(result)) => {

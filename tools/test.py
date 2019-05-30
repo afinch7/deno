@@ -23,9 +23,9 @@ from permission_prompt_test import permission_prompt_tests
 from complex_permissions_test import complex_permissions_tests
 
 from http_server import spawn
-from util import (DenoTestCase, ColorTextTestRunner, enable_ansi_colors,
-                  executable_suffix, run, run_output, rmtree, tests_path,
-                  test_args)
+from util import (DenoTestCase, ColorTextTestRunner, build_mode,
+                  enable_ansi_colors, executable_suffix, run, run_output,
+                  rmtree, root_path, tests_path, test_args)
 
 
 class TestTarget(DenoTestCase):
@@ -86,6 +86,10 @@ def main(argv):
     if os.path.isdir(deno_dir):
         rmtree(deno_dir)
     os.environ["DENO_DIR"] = deno_dir
+
+    build_dir = os.environ.get("DENO_BUILD_PATH",
+                               os.path.join(root_path, "target", build_mode()))
+    os.environ["DENO_BUILD_PATH"] = build_dir
 
     enable_ansi_colors()
 
