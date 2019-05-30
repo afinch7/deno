@@ -4,6 +4,7 @@ pub use crate::msg::ErrorKind;
 use crate::resolve_addr::ResolveAddrError;
 use deno::JSError;
 use deno_lib_bindings;
+use dlopen;
 use hyper;
 #[cfg(unix)]
 use nix::{errno::Errno, Error as UnixError};
@@ -156,6 +157,26 @@ impl From<hyper::Error> for DenoError {
   fn from(err: hyper::Error) -> Self {
     Self {
       repr: Repr::HyperErr(err),
+    }
+  }
+}
+
+impl From<dlopen::Error> for DenoError {
+  #[inline]
+  fn from(err: dlopen::Error) -> Self {
+    Self {
+      repr: match err {
+        dlopen::Error::OpeningLibraryError(io_err)
+        | dlopen::Error::SymbolGettingError(io_err) => Repr::IoErr(io_err),
+        dlopen::Error::NullCharacter(_err) => Repr::Simple(
+          ErrorKind::BindingNullCharacter,
+          String::from("Null character in CString value."),
+        ),
+        dlopen::Error::NullSymbol => Repr::Simple(
+          ErrorKind::BindingNullSymbol,
+          String::from("Value of symbol was null."),
+        ),
+      },
     }
   }
 }

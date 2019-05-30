@@ -12,7 +12,7 @@ pub type DylibFnId = u32;
 pub fn load_binding<P: AsRef<OsStr>>(lib_path: P) -> DenoResult<Library> {
   debug!("LOADING NATIVE BINDING LIB: {:#?}", lib_path.as_ref());
 
-  let lib = Library::open(lib_path).unwrap();
+  let lib = Library::open(lib_path)?;
 
   Ok(lib)
 }

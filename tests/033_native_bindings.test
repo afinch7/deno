@@ -1,0 +1,2 @@
+args: run --reload --allow-dlopen tests/033_native_bindings.ts
+output: tests/033_native_bindings.ts.out

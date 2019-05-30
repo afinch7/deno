@@ -163,7 +163,7 @@ def permission_prompt_test(deno_exe):
     runner = unittest.TextTestRunner(verbosity=2)
     loader = unittest.TestLoader()
 
-    test_types = ["read", "write", "env", "net", "run"]
+    test_types = ["read", "write", "env", "net", "run", "dlopen"]
 
     for test_type in test_types:
         print "Permissions prompt tests for \"{}\"".format(test_type)
