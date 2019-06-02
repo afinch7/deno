@@ -60,10 +60,12 @@ impl From<io::Error> for BindingError {
 pub type BindingOpAsyncFuture =
   Box<dyn Future<Item = Buf, Error = BindingError> + Send>;
 
-pub enum BindingOpResult {
-  Sync(BindingResult<Buf>),
+pub enum BindingOpSyncOrAsync {
+  Sync(Buf),
   Async(BindingOpAsyncFuture),
 }
+
+pub type BindingOpResult = BindingResult<BindingOpSyncOrAsync>;
 
 /// Dispatch funciton type
 /// base is a placeholder value for now not sure what we want to use there

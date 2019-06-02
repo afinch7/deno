@@ -6,7 +6,7 @@ localPath.pop();
 localPath = localPath.join("/");
 
 const dLib = dlopen(env().DL_PATH_TEST_BINDING + "/" + dlname("test_binding"));
-const testOpFn = dLib.loadFn("test_op");
+const testOpFn = dLib.loadOp("test_op");
 
 export interface TestOptions {
     data: any;

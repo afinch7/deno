@@ -595,20 +595,20 @@ table DlOpen {
 }
 
 table DlOpenRes {
-  lib_id: uint32;
+  rid: uint32;
 }
 
 table DlSym {
-  lib_id: uint32;
+  rid: uint32;
   name: string;
 }
 
 table DlSymRes {
-  fn_id: uint32;
+  rid: uint32;
 }
 
 table DlCall {
-  fn_id: uint32;
+  rid: uint32;
   data: [ubyte];
 }
 

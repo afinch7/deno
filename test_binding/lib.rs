@@ -1,7 +1,6 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use deno::{PinnedBuf, Buf};
-use deno::bindings::{BindingOpResult, new_binding_error};
-use futures;
+use deno::bindings::{BindingOpResult, BindingOpSyncOrAsync, new_binding_error};
 
 #[macro_use]
 extern crate deno;
@@ -12,7 +11,7 @@ pub fn op_test_op(
   zero_copy: Option<PinnedBuf>,
 ) -> BindingOpResult {
     if !is_sync {
-        return BindingOpResult::Async(Box::new(futures::future::err(new_binding_error(String::from("Async not supported!")))));
+        return Err(new_binding_error(String::from("Async not supported!")));
     }
     if let Some(buf) = zero_copy {
         let data_str = std::str::from_utf8(&data[..]).unwrap();
@@ -21,7 +20,7 @@ pub fn op_test_op(
     }
     let result = b"test";
     let result_box: Buf = Box::new(*result);
-    BindingOpResult::Sync(Ok(result_box))
+    Ok(BindingOpSyncOrAsync::Sync(result_box))
 }
 
 declare_binding_function!(test_op, op_test_op);

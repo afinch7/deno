@@ -17,7 +17,7 @@ use crate::repl::Repl;
 use crate::state::WorkerChannels;
 
 use deno::bindings::BindingOpDispatchFn;
-use deno::bindings::BindingOpResult;
+use deno::bindings::BindingOpSyncOrAsync;
 use deno::Buf;
 use deno::PinnedBuf;
 
@@ -105,8 +105,8 @@ enum Repr {
   ChildStdout(tokio_process::ChildStdout),
   ChildStderr(tokio_process::ChildStderr),
   Worker(WorkerChannels),
-  Dylib(Library),
-  DylibFn(BindingOpDispatchFn),
+  DyLib(Library),
+  DyLibOp(BindingOpDispatchFn),
 }
 
 /// If the given rid is open, this returns the type of resource, E.G. "worker".
@@ -149,8 +149,8 @@ fn inspect_repr(repr: &Repr) -> String {
     Repr::ChildStdout(_) => "childStdout",
     Repr::ChildStderr(_) => "childStderr",
     Repr::Worker(_) => "worker",
-    Repr::Dylib(_) => "dylib",
-    Repr::DylibFn(_) => "dylibFn",
+    Repr::DyLib(_) => "dylib",
+    Repr::DyLibOp(_) => "dylibOp",
   };
 
   String::from(h_repr)
@@ -575,35 +575,35 @@ pub fn add_dl<P: AsRef<OsStr>>(lib_path: P) -> DenoResult<Resource> {
 
   let rid = new_rid();
   let mut tg = RESOURCE_TABLE.lock().unwrap();
-  let r = tg.insert(rid, Repr::Dylib(lib));
+  let r = tg.insert(rid, Repr::DyLib(lib));
   assert!(r.is_none());
   Ok(Resource { rid })
 }
 
-pub fn add_dl_fn(lib_resource: ResourceId, name: &str) -> DenoResult<Resource> {
+pub fn add_dl_op(lib_resource: ResourceId, name: &str) -> DenoResult<Resource> {
   let mut tg = RESOURCE_TABLE.lock().unwrap();
   let lib = match tg.get(&lib_resource) {
-    Some(Repr::Dylib(lib)) => lib,
+    Some(Repr::DyLib(lib)) => lib,
     Some(_) | None => return Err(errors::bad_resource()),
   };
   let fun = *unsafe { lib.symbol::<BindingOpDispatchFn>(name) }?;
   let rid = new_rid();
-  let r = tg.insert(rid, Repr::DylibFn(fun));
+  let r = tg.insert(rid, Repr::DyLibOp(fun));
   assert!(r.is_none());
   Ok(Resource { rid })
 }
 
-pub fn call_dl_fn(
+pub fn call_dl_op(
   fn_resource: ResourceId,
   is_sync: bool,
   data: &[u8],
   zero_copy: Option<PinnedBuf>,
-) -> DenoResult<BindingOpResult> {
+) -> DenoResult<BindingOpSyncOrAsync> {
   let tg = RESOURCE_TABLE.lock().unwrap();
   let fun = match tg.get(&fn_resource) {
-    Some(Repr::DylibFn(fun)) => fun,
+    Some(Repr::DyLibOp(fun)) => fun,
     Some(_) | None => return Err(errors::bad_resource()),
   };
-  let result = fun(is_sync, data, zero_copy);
+  let result = fun(is_sync, data, zero_copy).map_err(DenoError::from)?;
   Ok(result)
 }

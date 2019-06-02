@@ -8,13 +8,13 @@ import { build } from "./build";
 export type DlCallReturn = Uint8Array | undefined;
 
 function dlCallSync(
-  fnId: number,
+  rid: number,
   data: Uint8Array,
   zeroCopy?: ArrayBufferView
 ): DlCallReturn {
   const builder = flatbuffers.createBuilder();
   const data_ = builder.createString(data);
-  const inner = msg.DlCall.createDlCall(builder, fnId, data_);
+  const inner = msg.DlCall.createDlCall(builder, rid, data_);
   const baseRes = sendSync(builder, msg.Any.DlCall, inner, zeroCopy);
   assert(baseRes != null);
   assert(
@@ -32,13 +32,13 @@ function dlCallSync(
 }
 
 async function dlCallAsync(
-  fnId: number,
+  rid: number,
   data: Uint8Array,
   zeroCopy?: ArrayBufferView
 ): Promise<DlCallReturn> {
   const builder = flatbuffers.createBuilder();
   const data_ = builder.createString(data);
-  const inner = msg.DlCall.createDlCall(builder, fnId, data_);
+  const inner = msg.DlCall.createDlCall(builder, rid, data_);
   const baseRes = await sendAsync(builder, msg.Any.DlCall, inner, zeroCopy);
   assert(baseRes != null);
   assert(
@@ -67,10 +67,10 @@ function dlSym(libId: number, name: string): number {
   );
   const res = new msg.DlSymRes();
   assert(baseRes!.inner(res) != null);
-  return res.fnId();
+  return res.rid();
 }
 
-export interface DynamicLibFn {
+export interface DynamicLibOp {
   dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): DlCallReturn;
 
   dispatchAsync(
@@ -84,16 +84,16 @@ export interface DynamicLibFn {
 // for performance, since loading a function from a library for every call
 // would likely be the limiting factor for many use cases.
 // @internal
-class DynamicLibFnImpl implements DynamicLibFn {
-  private readonly fnId: number;
+class DynamicLibOpImpl implements DynamicLibOp {
+  private readonly rid: number;
 
   constructor(dlId: number, name: string) {
-    this.fnId = dlSym(dlId, name);
+    this.rid = dlSym(dlId, name);
   }
 
   dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): DlCallReturn {
     // Like the prior Deno.nativeBindings.sendSync
-    return dlCallSync(this.fnId, data, zeroCopy);
+    return dlCallSync(this.rid, data, zeroCopy);
   }
 
   async dispatchAsync(
@@ -101,7 +101,7 @@ class DynamicLibFnImpl implements DynamicLibFn {
     zeroCopy?: ArrayBufferView
   ): Promise<DlCallReturn> {
     // Like the prior Deno.nativeBindings.sendSync but async
-    return dlCallAsync(this.fnId, data, zeroCopy);
+    return dlCallAsync(this.rid, data, zeroCopy);
   }
 }
 
@@ -117,11 +117,11 @@ function dlOpen(filename: string): number {
   );
   const res = new msg.DlOpenRes();
   assert(baseRes!.inner(res) != null);
-  return res.libId();
+  return res.rid();
 }
 
 export interface DynamicLib {
-  loadFn(name: string): DynamicLibFn;
+  loadOp(name: string): DynamicLibOp;
 }
 
 // A loaded dynamic lib.
@@ -130,20 +130,20 @@ export interface DynamicLib {
 // the same library multiple times.
 export class DynamicLibImpl implements DynamicLib {
   // unique resource identifier for the loaded dynamic lib rust side
-  private readonly libId: number;
-  private readonly fnMap: Map<string, DynamicLibFn> = new Map();
+  private readonly rid: number;
+  private readonly fnMap: Map<string, DynamicLibOp> = new Map();
 
   // @internal
   constructor(libraryPath: string) {
-    this.libId = dlOpen(libraryPath);
+    this.rid = dlOpen(libraryPath);
   }
 
-  loadFn(name: string): DynamicLibFn {
+  loadOp(name: string): DynamicLibOp {
     const cachedFn = this.fnMap.get(name);
     if (cachedFn) {
       return cachedFn;
     } else {
-      const dlFn = new DynamicLibFnImpl(this.libId, name);
+      const dlFn = new DynamicLibOpImpl(this.rid, name);
       this.fnMap.set(name, dlFn);
       return dlFn;
     }

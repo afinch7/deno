@@ -1096,7 +1096,6 @@ name = "test_binding"
 version = "0.1.0"
 dependencies = [
  "deno 0.7.0",
- "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

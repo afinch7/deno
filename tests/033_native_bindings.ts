@@ -1,7 +1,7 @@
 const { dlname, dlopen, env } = Deno;
 
 const dLib = dlopen(env().DENO_BUILD_PATH + "/" + dlname("test_binding"));
-const testOpFn = dLib.loadFn("test_op");
+const testOpFn = dLib.loadOp("test_op");
 
 interface TestOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

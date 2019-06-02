@@ -89,7 +89,7 @@ export const args: string[] = [];
 export { core } from "./core";
 
 export {
-  DynamicLibFn,
+  DynamicLibOp,
   DynamicLibImpl as DynamicLib,
   dlopen,
   dlname

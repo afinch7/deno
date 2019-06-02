@@ -26,7 +26,7 @@ use crate::tokio_write;
 use crate::version;
 use crate::worker::root_specifier_to_url;
 use crate::worker::Worker;
-use deno::bindings::BindingOpResult;
+use deno::bindings::BindingOpSyncOrAsync;
 use deno::js_check;
 use deno::Buf;
 use deno::JSError;
@@ -2220,7 +2220,7 @@ fn op_dl_open(
 
     let builder = &mut FlatBufferBuilder::new();
     let msg_inner =
-      msg::DlOpenRes::create(builder, &msg::DlOpenResArgs { lib_id: lib.rid });
+      msg::DlOpenRes::create(builder, &msg::DlOpenResArgs { rid: lib.rid });
 
     Ok(serialize_response(
       cmd_id,
@@ -2241,15 +2241,15 @@ fn op_dl_sym(
 ) -> Box<OpWithError> {
   let cmd_id = base.cmd_id();
   let inner = base.inner_as_dl_sym().unwrap();
-  let lib_id = inner.lib_id();
+  let rid = inner.rid();
   let name = inner.name().unwrap();
 
   Box::new(futures::future::result(move || -> OpResult {
-    let fun = resources::add_dl_fn(lib_id, name)?;
+    let fun = resources::add_dl_op(rid, name)?;
 
     let builder = &mut FlatBufferBuilder::new();
     let msg_inner =
-      msg::DlSymRes::create(builder, &msg::DlSymResArgs { fn_id: fun.rid });
+      msg::DlSymRes::create(builder, &msg::DlSymResArgs { rid: fun.rid });
 
     Ok(serialize_response(
       cmd_id,
@@ -2270,10 +2270,10 @@ fn op_dl_call(
 ) -> Box<OpWithError> {
   let cmd_id = base.cmd_id();
   let inner = base.inner_as_dl_call().unwrap();
-  let fn_id = inner.fn_id();
+  let rid = inner.rid();
 
-  let result = match resources::call_dl_fn(
-    fn_id,
+  let result = match resources::call_dl_op(
+    rid,
     base.sync(),
     inner.data().unwrap(),
     data,
@@ -2283,10 +2283,10 @@ fn op_dl_call(
   };
 
   let op = match (base.sync(), result) {
-    (true, BindingOpResult::Sync(result)) => {
-      Box::new(futures::future::result(result))
+    (true, BindingOpSyncOrAsync::Sync(buf)) => {
+      Box::new(futures::future::ok(buf))
     }
-    (false, BindingOpResult::Async(result)) => result,
+    (false, BindingOpSyncOrAsync::Async(result)) => result,
     (is_sync, _) => panic!(
       "Expected binding result's sync to match call. is_sync: {}",
       is_sync
