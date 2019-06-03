@@ -1,6 +1,6 @@
 const { dlname, dlopen, env } = Deno;
 
-const dLib = dlopen(env().DENO_BUILD_PATH + "/" + dlname("test_binding"));
+const dLib = dlopen(env().DENO_BUILD_PATH + "/" + dlname("test_plugin"));
 const testOpFn = dLib.loadOp("test_op");
 
 interface TestOptions {

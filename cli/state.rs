@@ -10,7 +10,7 @@ use crate::resources;
 use crate::resources::ResourceId;
 use crate::worker::Worker;
 use deno::Buf;
-use deno::Op;
+use deno::CoreOp;
 use deno::PinnedBuf;
 use futures::future::Shared;
 use std;
@@ -89,7 +89,11 @@ impl Deref for ThreadSafeState {
 }
 
 impl ThreadSafeState {
-  pub fn dispatch(&self, control: &[u8], zero_copy: Option<PinnedBuf>) -> Op {
+  pub fn dispatch(
+    &self,
+    control: &[u8],
+    zero_copy: Option<PinnedBuf>,
+  ) -> CoreOp {
     ops::dispatch_all(self, control, zero_copy, self.dispatch_selector)
   }
 }

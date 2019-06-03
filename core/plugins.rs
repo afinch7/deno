@@ -1,13 +1,12 @@
-use crate::isolate::Buf;
+use crate::isolate::Op;
 use crate::libdeno::PinnedBuf;
-use futures::Future;
 use std::fmt;
 use std::io;
 
-pub type BindingResult<T> = std::result::Result<T, BindingError>;
+pub type PluginResult<T> = std::result::Result<T, PluginError>;
 
 #[derive(Debug)]
-pub struct BindingError {
+pub struct PluginError {
   repr: Repr,
 }
 
@@ -17,13 +16,13 @@ enum Repr {
   IoErr(io::Error),
 }
 
-pub fn new_binding_error(msg: String) -> BindingError {
-  BindingError {
+pub fn new_plugin_error(msg: String) -> PluginError {
+  PluginError {
     repr: Repr::Simple(msg),
   }
 }
 
-impl fmt::Display for BindingError {
+impl fmt::Display for PluginError {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self.repr {
       Repr::Simple(ref err_str) => f.pad(err_str),
@@ -32,7 +31,7 @@ impl fmt::Display for BindingError {
   }
 }
 
-impl std::error::Error for BindingError {
+impl std::error::Error for PluginError {
   fn description(&self) -> &str {
     match self.repr {
       Repr::Simple(ref msg) => msg.as_str(),
@@ -48,7 +47,7 @@ impl std::error::Error for BindingError {
   }
 }
 
-impl From<io::Error> for BindingError {
+impl From<io::Error> for PluginError {
   #[inline]
   fn from(err: io::Error) -> Self {
     Self {
@@ -57,31 +56,26 @@ impl From<io::Error> for BindingError {
   }
 }
 
-pub type BindingOpAsyncFuture =
-  Box<dyn Future<Item = Buf, Error = BindingError> + Send>;
+/// Base result type for a plugin op represents either a Sync or Async value
+pub type PluginOp = Op<PluginError>;
 
-pub enum BindingOpSyncOrAsync {
-  Sync(Buf),
-  Async(BindingOpAsyncFuture),
-}
+/// Complete return type for a plugin op including Sync errors
+pub type PluginOpResult = PluginResult<PluginOp>;
 
-pub type BindingOpResult = BindingResult<BindingOpSyncOrAsync>;
-
-/// Dispatch funciton type
-/// base is a placeholder value for now not sure what we want to use there
-pub type BindingOpDispatchFn =
-  fn(is_sync: bool, data: &[u8], zeroCopy: Option<PinnedBuf>)
-    -> BindingOpResult;
+/// Funciton type for plugin ops
+pub type PluginOpDispatchFn =
+  fn(is_sync: bool, data: &[u8], zero_copy: Option<PinnedBuf>)
+    -> PluginOpResult;
 
 #[macro_export]
-macro_rules! declare_binding_function {
+macro_rules! declare_plugin_op {
   ($name:ident, $fn:path) => {
     #[no_mangle]
     pub fn $name(
       is_sync: bool,
       data: &[u8],
       zero_copy: Option<PinnedBuf>,
-    ) -> BindingOpResult {
+    ) -> PluginOpResult {
       $fn(is_sync, data, zero_copy)
     }
   };

@@ -5,7 +5,7 @@ let localPath: any = import.meta.url.split("/");
 localPath.pop();
 localPath = localPath.join("/");
 
-const dLib = dlopen(env().DL_PATH_TEST_BINDING + "/" + dlname("test_binding"));
+const dLib = dlopen(env().DL_PATH_TEST_BINDING + "/" + dlname("test_plugin"));
 const testOpFn = dLib.loadOp("test_op");
 
 export interface TestOptions {

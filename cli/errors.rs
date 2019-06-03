@@ -2,7 +2,7 @@
 use crate::js_errors::JSErrorColor;
 pub use crate::msg::ErrorKind;
 use crate::resolve_addr::ResolveAddrError;
-use deno::bindings;
+use deno::plugins;
 use deno::JSError;
 use dlopen;
 use hyper;
@@ -26,7 +26,7 @@ enum Repr {
   IoErr(io::Error),
   UrlErr(url::ParseError),
   HyperErr(hyper::Error),
-  BindingErr(bindings::BindingError),
+  PluginErr(plugins::PluginError),
 }
 
 pub fn new(kind: ErrorKind, msg: String) -> DenoError {
@@ -95,7 +95,7 @@ impl DenoError {
           ErrorKind::HttpOther
         }
       }
-      Repr::BindingErr(ref _err) => ErrorKind::BindingError,
+      Repr::PluginErr(ref _err) => ErrorKind::PluginError,
     }
   }
 }
@@ -107,7 +107,7 @@ impl fmt::Display for DenoError {
       Repr::IoErr(ref err) => err.fmt(f),
       Repr::UrlErr(ref err) => err.fmt(f),
       Repr::HyperErr(ref err) => err.fmt(f),
-      Repr::BindingErr(ref err) => err.fmt(f),
+      Repr::PluginErr(ref err) => err.fmt(f),
     }
   }
 }
@@ -119,7 +119,7 @@ impl std::error::Error for DenoError {
       Repr::IoErr(ref err) => err.description(),
       Repr::UrlErr(ref err) => err.description(),
       Repr::HyperErr(ref err) => err.description(),
-      Repr::BindingErr(ref err) => err.description(),
+      Repr::PluginErr(ref err) => err.description(),
     }
   }
 
@@ -129,7 +129,7 @@ impl std::error::Error for DenoError {
       Repr::IoErr(ref err) => Some(err),
       Repr::UrlErr(ref err) => Some(err),
       Repr::HyperErr(ref err) => Some(err),
-      Repr::BindingErr(ref err) => Some(err),
+      Repr::PluginErr(ref err) => Some(err),
     }
   }
 }
@@ -169,11 +169,11 @@ impl From<dlopen::Error> for DenoError {
         dlopen::Error::OpeningLibraryError(io_err)
         | dlopen::Error::SymbolGettingError(io_err) => Repr::IoErr(io_err),
         dlopen::Error::NullCharacter(_err) => Repr::Simple(
-          ErrorKind::BindingNullCharacter,
+          ErrorKind::PluginNullCharacter,
           String::from("Null character in CString value."),
         ),
         dlopen::Error::NullSymbol => Repr::Simple(
-          ErrorKind::BindingNullSymbol,
+          ErrorKind::PluginNullSymbol,
           String::from("Value of symbol was null."),
         ),
       },
@@ -181,11 +181,11 @@ impl From<dlopen::Error> for DenoError {
   }
 }
 
-impl From<bindings::BindingError> for DenoError {
+impl From<plugins::PluginError> for DenoError {
   #[inline]
-  fn from(err: bindings::BindingError) -> Self {
+  fn from(err: plugins::PluginError) -> Self {
     Self {
-      repr: Repr::BindingErr(err),
+      repr: Repr::PluginErr(err),
     }
   }
 }
@@ -266,11 +266,11 @@ pub fn no_buffer_specified() -> DenoError {
 }
 
 pub fn binding_bad_lib_id() -> DenoError {
-  new(ErrorKind::BindingBadLibId, String::from("bad resource id"))
+  new(ErrorKind::PluginBadLibId, String::from("bad resource id"))
 }
 
 pub fn binding_bad_fn_id() -> DenoError {
-  new(ErrorKind::BindingBadFnId, String::from("bad resource id"))
+  new(ErrorKind::PluginBadFnId, String::from("bad resource id"))
 }
 
 #[derive(Debug)]

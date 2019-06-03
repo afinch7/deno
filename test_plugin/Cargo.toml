@@ -1,7 +1,7 @@
 # Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 
 [package]
-name = "test_binding"
+name = "test_plugin"
 version = "0.1.0"
 edition = "2018"
 

@@ -16,8 +16,8 @@ use crate::http_body::HttpBody;
 use crate::repl::Repl;
 use crate::state::WorkerChannels;
 
-use deno::bindings::BindingOpDispatchFn;
-use deno::bindings::BindingOpSyncOrAsync;
+use deno::plugins::PluginOp;
+use deno::plugins::PluginOpDispatchFn;
 use deno::Buf;
 use deno::PinnedBuf;
 
@@ -106,7 +106,7 @@ enum Repr {
   ChildStderr(tokio_process::ChildStderr),
   Worker(WorkerChannels),
   DyLib(Library),
-  DyLibOp(BindingOpDispatchFn),
+  DyLibOp(PluginOpDispatchFn),
 }
 
 /// If the given rid is open, this returns the type of resource, E.G. "worker".
@@ -586,7 +586,7 @@ pub fn add_dl_op(lib_resource: ResourceId, name: &str) -> DenoResult<Resource> {
     Some(Repr::DyLib(lib)) => lib,
     Some(_) | None => return Err(errors::bad_resource()),
   };
-  let fun = *unsafe { lib.symbol::<BindingOpDispatchFn>(name) }?;
+  let fun = *unsafe { lib.symbol::<PluginOpDispatchFn>(name) }?;
   let rid = new_rid();
   let r = tg.insert(rid, Repr::DyLibOp(fun));
   assert!(r.is_none());
@@ -598,7 +598,7 @@ pub fn call_dl_op(
   is_sync: bool,
   data: &[u8],
   zero_copy: Option<PinnedBuf>,
-) -> DenoResult<BindingOpSyncOrAsync> {
+) -> DenoResult<PluginOp> {
   let tg = RESOURCE_TABLE.lock().unwrap();
   let fun = match tg.get(&fn_resource) {
     Some(Repr::DyLibOp(fun)) => fun,

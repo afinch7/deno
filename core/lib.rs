@@ -4,12 +4,12 @@ extern crate log;
 extern crate futures;
 extern crate libc;
 
-pub mod bindings;
 mod flags;
 mod isolate;
 mod js_errors;
 mod libdeno;
 mod modules;
+pub mod plugins;
 mod shared_queue;
 
 pub use crate::flags::v8_set_flags;

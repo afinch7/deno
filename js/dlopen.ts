@@ -92,7 +92,6 @@ class DynamicLibOpImpl implements DynamicLibOp {
   }
 
   dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): DlCallReturn {
-    // Like the prior Deno.nativeBindings.sendSync
     return dlCallSync(this.rid, data, zeroCopy);
   }
 
@@ -100,7 +99,6 @@ class DynamicLibOpImpl implements DynamicLibOp {
     data: Uint8Array,
     zeroCopy?: ArrayBufferView
   ): Promise<DlCallReturn> {
-    // Like the prior Deno.nativeBindings.sendSync but async
     return dlCallAsync(this.rid, data, zeroCopy);
   }
 }

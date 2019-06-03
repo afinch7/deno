@@ -26,9 +26,9 @@ use crate::tokio_write;
 use crate::version;
 use crate::worker::root_specifier_to_url;
 use crate::worker::Worker;
-use deno::bindings::BindingOpSyncOrAsync;
 use deno::js_check;
 use deno::Buf;
+use deno::CoreOp;
 use deno::JSError;
 use deno::Op;
 use deno::PinnedBuf;
@@ -65,8 +65,7 @@ type OpResult = DenoResult<Buf>;
 
 pub type OpWithError = dyn Future<Item = Buf, Error = DenoError> + Send;
 
-// TODO Ideally we wouldn't have to box the OpWithError being returned.
-// The box is just to make it easier to get a prototype refactor working.
+// TODO(afinch7) refactor the return type to DenoResult<deno::Op<DenoError>>.
 type OpCreator =
   fn(state: &ThreadSafeState, base: &msg::Base<'_>, data: Option<PinnedBuf>)
     -> Box<OpWithError>;
@@ -83,7 +82,7 @@ pub fn dispatch_all(
   control: &[u8],
   zero_copy: Option<PinnedBuf>,
   op_selector: OpSelector,
-) -> Op {
+) -> CoreOp {
   let bytes_sent_control = control.len();
   let bytes_sent_zero_copy = zero_copy.as_ref().map(|b| b.len()).unwrap_or(0);
   let op = if let Some(min_record) = parse_min_record(control) {
@@ -104,7 +103,7 @@ pub fn dispatch_all_legacy(
   control: &[u8],
   zero_copy: Option<PinnedBuf>,
   op_selector: OpSelector,
-) -> Op {
+) -> CoreOp {
   let base = msg::get_root_as_base(&control);
   let is_sync = base.sync();
   let inner_type = base.inner_type();
@@ -2283,10 +2282,8 @@ fn op_dl_call(
   };
 
   let op = match (base.sync(), result) {
-    (true, BindingOpSyncOrAsync::Sync(buf)) => {
-      Box::new(futures::future::ok(buf))
-    }
-    (false, BindingOpSyncOrAsync::Async(result)) => result,
+    (true, Op::Sync(buf)) => Box::new(futures::future::ok(buf)),
+    (false, Op::Async(result)) => result,
     (is_sync, _) => panic!(
       "Expected binding result's sync to match call. is_sync: {}",
       is_sync

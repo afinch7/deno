@@ -144,11 +144,11 @@ enum ErrorKind: byte {
   UnixError,
 
   // binding errors
-  BindingError,
-  BindingBadLibId,
-  BindingBadFnId,
-  BindingNullSymbol,
-  BindingNullCharacter,
+  PluginError,
+  PluginBadLibId,
+  PluginBadFnId,
+  PluginNullSymbol,
+  PluginNullCharacter,
 }
 
 table Cwd {}

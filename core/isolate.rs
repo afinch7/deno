@@ -27,12 +27,16 @@ use std::sync::{Arc, Mutex, Once, ONCE_INIT};
 
 pub type Buf = Box<[u8]>;
 
-pub type OpAsyncFuture = Box<dyn Future<Item = Buf, Error = ()> + Send>;
+pub type OpAsyncFuture<E> = Box<dyn Future<Item = Buf, Error = E> + Send>;
 
-pub enum Op {
+pub enum Op<E> {
   Sync(Buf),
-  Async(OpAsyncFuture),
+  Async(OpAsyncFuture<E>),
 }
+
+pub type CoreOpAsyncFuture = OpAsyncFuture<()>;
+
+pub type CoreOp = Op<()>;
 
 /// Stores a script used to initalize a Isolate
 pub struct Script<'a> {
@@ -50,7 +54,7 @@ pub enum StartupData<'a> {
   None,
 }
 
-type DispatchFn = Fn(&[u8], Option<PinnedBuf>) -> Op;
+type DispatchFn = Fn(&[u8], Option<PinnedBuf>) -> CoreOp;
 
 #[derive(Default)]
 pub struct Config {
@@ -64,7 +68,7 @@ impl Config {
   /// corresponds to the second argument of Deno.core.dispatch().
   pub fn dispatch<F>(&mut self, f: F)
   where
-    F: Fn(&[u8], Option<PinnedBuf>) -> Op + Send + Sync + 'static,
+    F: Fn(&[u8], Option<PinnedBuf>) -> CoreOp + Send + Sync + 'static,
   {
     self.dispatch = Some(Arc::new(f));
   }
@@ -84,7 +88,7 @@ pub struct Isolate {
   config: Config,
   needs_init: bool,
   shared: SharedQueue,
-  pending_ops: FuturesUnordered<OpAsyncFuture>,
+  pending_ops: FuturesUnordered<CoreOpAsyncFuture>,
   have_unpolled_ops: bool,
 }
 
@@ -564,7 +568,7 @@ pub mod tests {
     let dispatch_count_ = dispatch_count.clone();
 
     let mut config = Config::default();
-    config.dispatch(move |control, _| -> Op {
+    config.dispatch(move |control, _| -> CoreOp {
       dispatch_count_.fetch_add(1, Ordering::Relaxed);
       match mode {
         Mode::AsyncImmediate => {
