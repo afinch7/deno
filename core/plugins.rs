@@ -63,7 +63,7 @@ pub type PluginOp = Op<PluginError>;
 pub type PluginOpResult = PluginResult<PluginOp>;
 
 /// Funciton type for plugin ops
-pub type PluginOpDispatchFn =
+pub type PluginDispatchFn =
   fn(is_sync: bool, data: &[u8], zero_copy: Option<PinnedBuf>)
     -> PluginOpResult;
 
