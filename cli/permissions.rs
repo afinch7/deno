@@ -139,6 +139,8 @@ pub struct DenoPermissions {
   pub allow_env: PermissionAccessor,
   pub allow_run: PermissionAccessor,
   pub allow_hrtime: PermissionAccessor,
+  // TODO(afinch7) maybe add permissions whitelist for this?
+  pub allow_dlopen: PermissionAccessor,
   pub no_prompts: AtomicBool,
 }
 
@@ -156,6 +158,7 @@ impl DenoPermissions {
       allow_env: PermissionAccessor::from(flags.allow_env),
       allow_run: PermissionAccessor::from(flags.allow_run),
       allow_hrtime: PermissionAccessor::from(flags.allow_hrtime),
+      allow_dlopen: PermissionAccessor::from(flags.allow_dlopen),
       no_prompts: AtomicBool::new(flags.no_prompts),
     }
   }
@@ -349,6 +352,23 @@ impl DenoPermissions {
     }
   }
 
+  pub fn check_dlopen(&self, filename: &str) -> DenoResult<()> {
+    match self.allow_dlopen.get_state() {
+      PermissionAccessorState::Allow => Ok(()),
+      PermissionAccessorState::Ask => match self.try_permissions_prompt(
+        &format!("to load native bindings from: {}", filename),
+      ) {
+        Err(e) => Err(e),
+        Ok(v) => {
+          self.allow_dlopen.update_with_prompt_result(&v);
+          v.check()?;
+          Ok(())
+        }
+      },
+      PermissionAccessorState::Deny => Err(permission_denied()),
+    }
+  }
+
   /// Try to present the user with a permission prompt
   /// will error with permission_denied if no_prompts is enabled
   fn try_permissions_prompt(&self, message: &str) -> DenoResult<PromptResult> {
@@ -396,6 +416,10 @@ impl DenoPermissions {
     self.allow_hrtime.is_allow()
   }
 
+  pub fn allows_dlopen(&self) -> bool {
+    self.allow_dlopen.is_allow()
+  }
+
   pub fn revoke_run(&self) -> DenoResult<()> {
     self.allow_run.revoke();
     Ok(())
@@ -420,8 +444,14 @@ impl DenoPermissions {
     self.allow_env.revoke();
     Ok(())
   }
+
   pub fn revoke_hrtime(&self) -> DenoResult<()> {
     self.allow_hrtime.revoke();
+    Ok(())
+  }
+
+  pub fn revoke_dlopen(&self) -> DenoResult<()> {
+    self.allow_dlopen.revoke();
     Ok(())
   }
 }

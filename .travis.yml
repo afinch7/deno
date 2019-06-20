@@ -9,7 +9,6 @@ env:
   - CARGO_HOME=$TRAVIS_BUILD_DIR/third_party/rust_crates/
   - RUSTUP_HOME=$HOME/.rustup/
   - RUST_BACKTRACE=full
-  - CARGO_TARGET_DIR=$HOME/target
   - PATH=$TRAVIS_BUILD_DIR/third_party/llvm-build/Release+Asserts/bin:$CARGO_HOME/bin:$PATH
   - PYTHONPATH=third_party/python_packages
   - RUSTC_WRAPPER=sccache
@@ -73,7 +72,8 @@ script:
 - ./tools/lint.py
 - ./tools/test_format.py
 - ./tools/build.py -C target/release
-- DENO_BUILD_MODE=release ./tools/test.py
+- cargo build -p test_plugin --release --locked
+- DENO_BUILD_MODE=release ./tools/test.py -v
 
 jobs:
   fast_finish: true

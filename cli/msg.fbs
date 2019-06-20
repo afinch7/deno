@@ -11,6 +11,12 @@ union Any {
   Cwd,
   CwdRes,
   Dial,
+  PluginOpen,
+  PluginOpenRes,
+  PluginSym,
+  PluginSymRes,
+  PluginCall,
+  PluginCallRes,
   Environ,
   EnvironRes,
   Exit,
@@ -145,6 +151,11 @@ enum ErrorKind: byte {
   // other kinds
   Diagnostic,
   JSError,
+  
+  // binding errors
+  PluginError,
+  PluginNullSymbol,
+  PluginNullCharacter,
 }
 
 table Cwd {}
@@ -594,5 +605,31 @@ table Seek {
 }
 
 table GetRandomValues {}
+
+table PluginOpen {
+  filename: string;
+}
+
+table PluginOpenRes {
+  rid: uint32;
+}
+
+table PluginSym {
+  rid: uint32;
+  name: string;
+}
+
+table PluginSymRes {
+  rid: uint32;
+}
+
+table PluginCall {
+  rid: uint32;
+  data: [ubyte];
+}
+
+table PluginCallRes {
+  data: [ubyte];
+}
 
 root_type Base;

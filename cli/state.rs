@@ -355,6 +355,11 @@ impl ThreadSafeState {
     self.permissions.check_run()
   }
 
+  #[inline]
+  pub fn check_dlopen(&self, filename: &str) -> DenoResult<()> {
+    self.permissions.check_dlopen(filename)
+  }
+
   #[cfg(test)]
   pub fn mock(argv: Vec<String>) -> ThreadSafeState {
     ThreadSafeState::new(

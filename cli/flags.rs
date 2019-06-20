@@ -35,6 +35,7 @@ pub struct DenoFlags {
   pub allow_env: bool,
   pub allow_run: bool,
   pub allow_hrtime: bool,
+  pub allow_dlopen: bool,
   pub no_prompts: bool,
   pub no_fetch: bool,
   pub seed: Option<u64>,
@@ -85,6 +86,10 @@ fn add_run_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
       Arg::with_name("allow-hrtime")
         .long("allow-hrtime")
         .help("Allow high resolution time measurement"),
+    ).arg(
+      Arg::with_name("allow-dlopen")
+        .long("allow-dlopen")
+        .help("Allow loading native plugins via dlopen"),
     ).arg(
       Arg::with_name("allow-all")
         .short("A")
@@ -535,14 +540,17 @@ fn parse_run_args(mut flags: DenoFlags, matches: &ArgMatches) -> DenoFlags {
   if matches.is_present("allow-hrtime") {
     flags.allow_hrtime = true;
   }
+  if matches.is_present("allow-dlopen") {
+    flags.allow_dlopen = true;
+  }
   if matches.is_present("allow-all") {
     flags.allow_read = true;
+    flags.allow_write = true;
     flags.allow_env = true;
     flags.allow_net = true;
     flags.allow_run = true;
-    flags.allow_read = true;
-    flags.allow_write = true;
     flags.allow_hrtime = true;
+    flags.allow_dlopen = true;
   }
   if matches.is_present("no-prompt") {
     flags.no_prompts = true;
@@ -894,6 +902,7 @@ mod tests {
         allow_read: true,
         allow_write: true,
         allow_hrtime: true,
+        allow_dlopen: true,
         ..DenoFlags::default()
       }
     );

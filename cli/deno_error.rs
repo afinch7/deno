@@ -6,7 +6,9 @@ pub use crate::msg::ErrorKind;
 use crate::resolve_addr::ResolveAddrError;
 use crate::source_maps::apply_source_map;
 use crate::source_maps::SourceMapGetter;
+use deno::plugins;
 use deno::JSError;
+use dlopen;
 use hyper;
 #[cfg(unix)]
 use nix::{errno::Errno, Error as UnixError};
@@ -32,6 +34,7 @@ enum Repr {
   ImportMapErr(import_map::ImportMapError),
   Diagnostic(diagnostics::Diagnostic),
   JSError(JSError),
+  PluginErr(plugins::PluginError),
 }
 
 /// Create a new simple DenoError.
@@ -104,6 +107,7 @@ impl DenoError {
       Repr::ImportMapErr(ref _err) => ErrorKind::ImportMapError,
       Repr::Diagnostic(ref _err) => ErrorKind::Diagnostic,
       Repr::JSError(ref _err) => ErrorKind::JSError,
+      Repr::PluginErr(ref _err) => ErrorKind::PluginError,
     }
   }
 
@@ -128,6 +132,7 @@ impl fmt::Display for DenoError {
       Repr::ImportMapErr(ref err) => f.pad(&err.msg),
       Repr::Diagnostic(ref err) => err.fmt(f),
       Repr::JSError(ref err) => JSErrorColor(err).fmt(f),
+      Repr::PluginErr(ref err) => err.fmt(f),
     }
   }
 }
@@ -142,6 +147,7 @@ impl std::error::Error for DenoError {
       Repr::ImportMapErr(ref err) => &err.msg,
       Repr::Diagnostic(ref err) => &err.items[0].message,
       Repr::JSError(ref err) => &err.description(),
+      Repr::PluginErr(ref err) => &err.description(),
     }
   }
 
@@ -154,6 +160,7 @@ impl std::error::Error for DenoError {
       Repr::ImportMapErr(ref _err) => None,
       Repr::Diagnostic(ref _err) => None,
       Repr::JSError(ref err) => Some(err),
+      Repr::PluginErr(ref err) => Some(err),
     }
   }
 }
@@ -253,6 +260,35 @@ impl From<JSError> for DenoError {
   fn from(err: JSError) -> Self {
     Self {
       repr: Repr::JSError(err),
+    }
+  }
+}
+
+impl From<dlopen::Error> for DenoError {
+  #[inline]
+  fn from(err: dlopen::Error) -> Self {
+    Self {
+      repr: match err {
+        dlopen::Error::OpeningLibraryError(io_err)
+        | dlopen::Error::SymbolGettingError(io_err) => Repr::IoErr(io_err),
+        dlopen::Error::NullCharacter(_err) => Repr::Simple(
+          ErrorKind::PluginNullCharacter,
+          String::from("Null character in CString value."),
+        ),
+        dlopen::Error::NullSymbol => Repr::Simple(
+          ErrorKind::PluginNullSymbol,
+          String::from("Value of symbol was null."),
+        ),
+      },
+    }
+  }
+}
+
+impl From<plugins::PluginError> for DenoError {
+  #[inline]
+  fn from(err: plugins::PluginError) -> Self {
+    Self {
+      repr: Repr::PluginErr(err),
     }
   }
 }

@@ -10,6 +10,7 @@ mod js_errors;
 mod libdeno;
 mod module_specifier;
 mod modules;
+pub mod plugins;
 mod shared_queue;
 
 pub use crate::flags::v8_set_flags;
