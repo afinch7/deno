@@ -2200,7 +2200,7 @@ fn op_plugin_open(
 ) -> CliOpResult {
   let cmd_id = base.cmd_id();
   let inner = base.inner_as_plugin_open().unwrap();
-  let (filename, filename_) = resolve_path(inner.filename().unwrap())?;
+  let (filename, filename_) = resolve_from_cwd(inner.filename().unwrap())?;
 
   state.check_dlopen(&filename_)?;
 
