@@ -1,0 +1,26 @@
+# Users of Deno plugins will not need to provide a BUILD.gn
+# this is just to integrate into the build system.
+import("//build_extra/rust/rust.gni")
+
+# TODO(ry) This is placed into (on mac)
+# target/debug/rust_crates/libtest_plugin.dylib but the corresponding "cargo
+# build" places it in target/debug/libtest_plugin.dylib this discrepancy means
+# that tests/034_plugin.test depends on a GN build.
+rust_cdylib("test_plugin") {
+  source_root = "lib.rs"
+
+  # TODO(ry) This should not be necessary, it should come with the extern
+  # core:deno
+  args = [
+    "-L",
+    "obj/core/libdeno/",
+  ]
+
+  extern = [
+    {
+      label = "//core:deno"
+      crate_name = "deno"
+      crate_type = "rlib"
+    },
+  ]
+}

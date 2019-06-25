@@ -1,4 +1,5 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+// TODO rename this file to js/plugins.ts
 import { sendSync, sendAnySync } from "./dispatch";
 import * as msg from "gen/cli/msg_generated";
 import * as flatbuffers from "./flatbuffers";
@@ -89,6 +90,7 @@ class PluginOpImpl implements PluginOp {
   }
 }
 
+// TODO Rename to pluginOpen
 function dlOpen(filename: string): number {
   const builder = flatbuffers.createBuilder();
   const filename_ = builder.createString(filename);

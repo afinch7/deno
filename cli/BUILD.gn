@@ -20,11 +20,11 @@ main_extern = [
   },
 ]
 main_extern_rlib = [
-  "dlopen",
   "ansi_term",
   "atty",
   "clap",
   "dirs",
+  "dlopen",
   "flatbuffers",
   "futures",
   "fwdansi",

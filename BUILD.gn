@@ -8,6 +8,7 @@ group("default") {
     "cli:deno",
     "core:default",
     "core/libdeno:libdeno_test",
+    "tests/plugin:test_plugin",
   ]
 }
 

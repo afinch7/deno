@@ -24,8 +24,8 @@ qrun([clang_format_path, "-i", "-style", "Google"] +
      find_exts(["core"], [".cc", ".h"]))
 
 print "gn format"
-for fn in ["BUILD.gn", ".gn"] + find_exts(["build_extra", "cli", "core"],
-                                          [".gn", ".gni"]):
+for fn in ["BUILD.gn", ".gn"] + find_exts(
+    ["build_extra", "cli", "core", "tests/plugin"], [".gn", ".gni"]):
     qrun(["third_party/depot_tools/gn", "format", fn], env=google_env())
 
 print "yapf"
