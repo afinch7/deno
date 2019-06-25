@@ -26,7 +26,7 @@ function encodeTestOp(args: any): Uint8Array {
 const textDecoder = new TextDecoder();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function decodeTestOp(data: Uint8Array): any {
+function decodeTestOp(data: Uint8Array): string {
   return textDecoder.decode(data);
 }
 
