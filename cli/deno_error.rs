@@ -6,7 +6,6 @@ pub use crate::msg::ErrorKind;
 use crate::resolve_addr::ResolveAddrError;
 use crate::source_maps::apply_source_map;
 use crate::source_maps::SourceMapGetter;
-use deno::plugins;
 use deno::JSError;
 use dlopen;
 use hyper;
@@ -34,7 +33,6 @@ enum Repr {
   ImportMapErr(import_map::ImportMapError),
   Diagnostic(diagnostics::Diagnostic),
   JSError(JSError),
-  PluginErr(plugins::PluginError),
 }
 
 /// Create a new simple DenoError.
@@ -107,7 +105,6 @@ impl DenoError {
       Repr::ImportMapErr(ref _err) => ErrorKind::ImportMapError,
       Repr::Diagnostic(ref _err) => ErrorKind::Diagnostic,
       Repr::JSError(ref _err) => ErrorKind::JSError,
-      Repr::PluginErr(ref _err) => ErrorKind::PluginError,
     }
   }
 
@@ -132,7 +129,6 @@ impl fmt::Display for DenoError {
       Repr::ImportMapErr(ref err) => f.pad(&err.msg),
       Repr::Diagnostic(ref err) => err.fmt(f),
       Repr::JSError(ref err) => JSErrorColor(err).fmt(f),
-      Repr::PluginErr(ref err) => err.fmt(f),
     }
   }
 }
@@ -147,7 +143,6 @@ impl std::error::Error for DenoError {
       Repr::ImportMapErr(ref err) => &err.msg,
       Repr::Diagnostic(ref err) => &err.items[0].message,
       Repr::JSError(ref err) => &err.description(),
-      Repr::PluginErr(ref err) => &err.description(),
     }
   }
 
@@ -160,7 +155,6 @@ impl std::error::Error for DenoError {
       Repr::ImportMapErr(ref _err) => None,
       Repr::Diagnostic(ref _err) => None,
       Repr::JSError(ref err) => Some(err),
-      Repr::PluginErr(ref err) => Some(err),
     }
   }
 }
@@ -280,15 +274,6 @@ impl From<dlopen::Error> for DenoError {
           String::from("Value of symbol was null."),
         ),
       },
-    }
-  }
-}
-
-impl From<plugins::PluginError> for DenoError {
-  #[inline]
-  fn from(err: plugins::PluginError) -> Self {
-    Self {
-      repr: Repr::PluginErr(err),
     }
   }
 }

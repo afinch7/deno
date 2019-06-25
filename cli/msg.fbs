@@ -153,7 +153,6 @@ enum ErrorKind: byte {
   JSError,
   
   // binding errors
-  PluginError,
   PluginNullSymbol,
   PluginNullCharacter,
 }

@@ -1,5 +1,5 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-import { sendSync, sendAsync } from "./dispatch";
+import { sendSync, sendAnySync } from "./dispatch";
 import * as msg from "gen/cli/msg_generated";
 import * as flatbuffers from "./flatbuffers";
 import { assert } from "./util";
@@ -7,15 +7,7 @@ import { build } from "./build";
 
 export type PluginCallReturn = Uint8Array | undefined;
 
-function pluginCallSync(
-  rid: number,
-  data: Uint8Array,
-  zeroCopy?: ArrayBufferView
-): PluginCallReturn {
-  const builder = flatbuffers.createBuilder();
-  const data_ = builder.createString(data);
-  const inner = msg.PluginCall.createPluginCall(builder, rid, data_);
-  const baseRes = sendSync(builder, msg.Any.PluginCall, inner, zeroCopy);
+function pluginCallInner(baseRes: msg.Base): PluginCallReturn {
   assert(baseRes != null);
   assert(
     msg.Any.PluginCallRes === baseRes!.innerType(),
@@ -31,28 +23,28 @@ function pluginCallSync(
   return dataArray;
 }
 
-async function pluginCallAsync(
+function pluginCall(
   rid: number,
   data: Uint8Array,
   zeroCopy?: ArrayBufferView
-): Promise<PluginCallReturn> {
+): Promise<PluginCallReturn> | PluginCallReturn {
   const builder = flatbuffers.createBuilder();
   const data_ = builder.createString(data);
   const inner = msg.PluginCall.createPluginCall(builder, rid, data_);
-  const baseRes = await sendAsync(builder, msg.Any.PluginCall, inner, zeroCopy);
-  assert(baseRes != null);
-  assert(
-    msg.Any.PluginCallRes === baseRes!.innerType(),
-    `base.innerType() unexpectedly is ${baseRes!.innerType()}`
-  );
-  const res = new msg.PluginCallRes();
-  assert(baseRes!.inner(res) != null);
-
-  const dataArray = res.dataArray();
-  if (dataArray === null) {
-    return undefined;
+  const response = sendAnySync(builder, msg.Any.PluginCall, inner, zeroCopy);
+  if (response instanceof Promise) {
+    return new Promise(
+      async (resolve): Promise<void> => {
+        resolve(pluginCallInner(await response));
+      }
+    );
+  } else {
+    if (response != null) {
+      return pluginCallInner(response);
+    } else {
+      return undefined;
+    }
   }
-  return dataArray;
 }
 
 function pluginSym(libId: number, name: string): number {
@@ -71,12 +63,10 @@ function pluginSym(libId: number, name: string): number {
 }
 
 export interface PluginOp {
-  dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): PluginCallReturn;
-
-  dispatchAsync(
+  dispatch(
     data: Uint8Array,
     zeroCopy?: ArrayBufferView
-  ): Promise<PluginCallReturn>;
+  ): Promise<PluginCallReturn> | PluginCallReturn;
 }
 
 // A loaded dynamic lib function.
@@ -91,15 +81,11 @@ class PluginOpImpl implements PluginOp {
     this.rid = pluginSym(dlId, name);
   }
 
-  dispatchSync(data: Uint8Array, zeroCopy?: ArrayBufferView): PluginCallReturn {
-    return pluginCallSync(this.rid, data, zeroCopy);
-  }
-
-  async dispatchAsync(
+  dispatch(
     data: Uint8Array,
     zeroCopy?: ArrayBufferView
-  ): Promise<PluginCallReturn> {
-    return pluginCallAsync(this.rid, data, zeroCopy);
+  ): Promise<PluginCallReturn> | PluginCallReturn {
+    return pluginCall(this.rid, data, zeroCopy);
   }
 }
 

@@ -17,8 +17,8 @@ use crate::repl::Repl;
 use crate::state::WorkerChannels;
 
 use deno::plugins::PluginDispatchFn;
-use deno::plugins::PluginOp;
 use deno::Buf;
+use deno::CoreOp;
 use deno::PinnedBuf;
 
 use dlopen::symbor::Library;
@@ -599,15 +599,14 @@ pub fn add_plugin_op(
 
 pub fn call_plugin_op(
   fn_resource: ResourceId,
-  is_sync: bool,
   data: &[u8],
   zero_copy: Option<PinnedBuf>,
-) -> DenoResult<PluginOp> {
+) -> DenoResult<CoreOp> {
   let tg = RESOURCE_TABLE.lock().unwrap();
   let fun = match tg.get(&fn_resource) {
     Some(Repr::PluginOp(fun)) => fun,
     Some(_) | None => return Err(bad_resource()),
   };
-  let result = fun(is_sync, data, zero_copy).map_err(DenoError::from)?;
+  let result = fun(data, zero_copy);
   Ok(result)
 }

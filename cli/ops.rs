@@ -2259,11 +2259,10 @@ fn op_plugin_call(
   let inner = base.inner_as_plugin_call().unwrap();
   let rid = inner.rid();
 
-  let result =
-    resources::call_plugin_op(rid, base.sync(), inner.data().unwrap(), data)?;
+  let result = resources::call_plugin_op(rid, inner.data().unwrap(), data)?;
 
-  match (base.sync(), result) {
-    (true, Op::Sync(buf)) => {
+  match result {
+    Op::Sync(buf) => {
       let builder = &mut FlatBufferBuilder::new();
       let data = Some(builder.create_vector(&buf));
       let msg_inner =
@@ -2279,27 +2278,27 @@ fn op_plugin_call(
         },
       ))
     }
-    (false, Op::Async(result)) => Ok(Op::Async(Box::new(
-      result.map_err(DenoError::from).and_then(move |buf| {
-        let builder = &mut FlatBufferBuilder::new();
-        let data = Some(builder.create_vector(&buf));
-        let msg_inner =
-          msg::PluginCallRes::create(builder, &msg::PluginCallResArgs { data });
+    Op::Async(result) => Ok(Op::Async(Box::new(
+      result
+        .map_err(|_| panic!("Plugin op returned error future."))
+        .and_then(move |buf| {
+          let builder = &mut FlatBufferBuilder::new();
+          let data = Some(builder.create_vector(&buf));
+          let msg_inner = msg::PluginCallRes::create(
+            builder,
+            &msg::PluginCallResArgs { data },
+          );
 
-        Ok(serialize_response(
-          cmd_id,
-          builder,
-          msg::BaseArgs {
-            inner: Some(msg_inner.as_union_value()),
-            inner_type: msg::Any::PluginCallRes,
-            ..Default::default()
-          },
-        ))
-      }),
+          Ok(serialize_response(
+            cmd_id,
+            builder,
+            msg::BaseArgs {
+              inner: Some(msg_inner.as_union_value()),
+              inner_type: msg::Any::PluginCallRes,
+              ..Default::default()
+            },
+          ))
+        }),
     ))),
-    (is_sync, _) => panic!(
-      "Expected binding result's sync to match call. is_sync: {}",
-      is_sync
-    ),
   }
 }

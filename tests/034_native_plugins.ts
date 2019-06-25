@@ -32,12 +32,15 @@ function decodeTestOp(data: Uint8Array): any {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const doTestOp = (args: TestOptions): any => {
-  return decodeTestOp(
-    testOp.dispatchSync(
-      encodeTestOp(args.data),
-      encodeTestOp(args.zeroCopyData)
-    )
+  const response = testOp.dispatch(
+    encodeTestOp(args.data),
+    encodeTestOp(args.zeroCopyData)
   );
+  if (response instanceof Uint8Array) {
+    return decodeTestOp(response);
+  } else {
+    throw new Error("Unexpected response type");
+  }
 };
 
 console.log(doTestOp({ data: "test", zeroCopyData: { some: "data" } }));
