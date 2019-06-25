@@ -7,7 +7,7 @@ const {
   makeTempDirSync,
   readFileSync,
   run,
-  dlopen
+  openPlugin
 } = Deno;
 
 const firstCheckFailedMessage = "First check failed";
@@ -76,16 +76,16 @@ const test = {
       ]
     });
   },
-  needsDlopen: (): void => {
+  needsPlugins: (): void => {
     try {
-      const dlib = dlopen("some/fake/path");
+      const plugin = openPlugin("some/fake/path");
     } catch (e) {
       if (e.kind === Deno.ErrorKind.PermissionDenied) {
         console.log(firstCheckFailedMessage);
       }
     }
     try {
-      const dlib = dlopen("some/fake/path");
+      const plugin = openPlugin("some/fake/path");
     } catch (e) {
       if (e.kind === Deno.ErrorKind.PermissionDenied) {
         throw e;

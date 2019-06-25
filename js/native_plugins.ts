@@ -148,7 +148,7 @@ export class PluginImpl implements Plugin {
   }
 }
 
-export function dlopen(filename: string): Plugin {
+export function openPlugin(filename: string): Plugin {
   return new PluginImpl(filename);
 }
 
@@ -178,6 +178,6 @@ const pluginFileExtension = ((): PluginFileExtension => {
   }
 })();
 
-export function dlname(filenameBase: string): string {
+export function pluginFilename(filenameBase: string): string {
   return pluginFilePrefix + filenameBase + "." + pluginFileExtension;
 }

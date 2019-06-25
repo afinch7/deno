@@ -2202,7 +2202,7 @@ fn op_plugin_open(
   let inner = base.inner_as_plugin_open().unwrap();
   let (filename, filename_) = resolve_from_cwd(inner.filename().unwrap())?;
 
-  state.check_dlopen(&filename_)?;
+  state.check_plugins(&filename_)?;
 
   let lib = resources::add_plugin(filename)?;
 

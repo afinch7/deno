@@ -137,7 +137,7 @@ class RunPromptTest(DenoTestCase, BasePromptTest):
 
 
 class DlopenPromptTest(DenoTestCase, BasePromptTest):
-    test_type = "dlopen"
+    test_type = "plugins"
 
 
 def permission_prompt_tests():

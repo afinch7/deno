@@ -356,8 +356,8 @@ impl ThreadSafeState {
   }
 
   #[inline]
-  pub fn check_dlopen(&self, filename: &str) -> DenoResult<()> {
-    self.permissions.check_dlopen(filename)
+  pub fn check_plugins(&self, filename: &str) -> DenoResult<()> {
+    self.permissions.check_plugins(filename)
   }
 
   #[cfg(test)]

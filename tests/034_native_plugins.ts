@@ -1,7 +1,9 @@
-const { dlname, dlopen, env } = Deno;
+const { openPlugin, pluginFilename, env } = Deno;
 
-const dLib = dlopen(env().DENO_BUILD_PATH + "/" + dlname("test_plugin"));
-const testOpFn = dLib.loadOp("test_op");
+const plugin = openPlugin(
+  env().DENO_BUILD_PATH + "/" + pluginFilename("test_plugin")
+);
+const testOp = plugin.loadOp("test_op");
 
 interface TestOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,13 +31,13 @@ function decodeTestOp(data: Uint8Array): any {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const testOp = (args: TestOptions): any => {
+const doTestOp = (args: TestOptions): any => {
   return decodeTestOp(
-    testOpFn.dispatchSync(
+    testOp.dispatchSync(
       encodeTestOp(args.data),
       encodeTestOp(args.zeroCopyData)
     )
   );
 };
 
-console.log(testOp({ data: "test", zeroCopyData: { some: "data" } }));
+console.log(doTestOp({ data: "test", zeroCopyData: { some: "data" } }));

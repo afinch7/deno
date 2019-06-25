@@ -2,5 +2,5 @@
 members = [
   "cli",
   "core",
-  "test_plugin",
+  "tests/plugin",
 ]
