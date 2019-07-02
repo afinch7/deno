@@ -16,6 +16,8 @@ rust_cdylib("test_plugin") {
     "obj/core/libdeno/",
   ]
 
+  extern_rlib = [ "futures" ]
+
   extern = [
     {
       label = "//core:deno"

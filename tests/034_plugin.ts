@@ -4,6 +4,7 @@ const plugin = openPlugin(
   env().DENO_BUILD_PATH + "/rust_crates/" + pluginFilename("test_plugin")
 );
 const testOp = plugin.loadOp("test_op");
+const asyncTestOp = plugin.loadOp("async_test_op");
 
 interface TestOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,4 +44,24 @@ const doTestOp = (args: TestOptions): any => {
   }
 };
 
-console.log(doTestOp({ data: "test", zeroCopyData: { some: "data" } }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function doAsyncTestOp(args: TestOptions): Promise<any> {
+  const response = asyncTestOp.dispatch(
+    encodeTestOp(args.data),
+    encodeTestOp(args.zeroCopyData)
+  );
+  if (response instanceof Promise) {
+    return decodeTestOp(await response);
+  } else {
+    throw new Error("Unexpected response type");
+  }
+}
+
+async function main(): Promise<void> {
+  console.log(doTestOp({ data: "test", zeroCopyData: { some: "data" } }));
+  console.log(
+    await doAsyncTestOp({ data: "test", zeroCopyData: { some: "data" } })
+  );
+}
+
+main();
