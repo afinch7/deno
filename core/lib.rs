@@ -1,7 +1,8 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+#![feature(async_await)]
 #[macro_use]
 extern crate log;
-extern crate futures;
+extern crate futures01;
 extern crate libc;
 
 mod flags;

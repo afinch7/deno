@@ -53,6 +53,7 @@ tokio-rustls = "0.9.3"
 tokio-threadpool = "0.1.14"
 url = "1.7.2"
 utime = "0.2.1"
+futures_03 = { version = "=0.3.0-alpha.16", package = "futures-preview", features = ["compat"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.7"

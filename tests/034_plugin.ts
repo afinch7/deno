@@ -1,7 +1,7 @@
 const { openPlugin, pluginFilename, env } = Deno;
 
 const plugin = openPlugin(
-  env().DENO_BUILD_PATH + "/rust_crates/" + pluginFilename("test_plugin")
+  env().DENO_BUILD_PATH + "/" + pluginFilename("test_plugin")
 );
 const testOp = plugin.loadOp("test_op");
 const asyncTestOp = plugin.loadOp("async_test_op");

@@ -608,5 +608,5 @@ pub fn call_plugin_op(
     Some(_) | None => return Err(bad_resource()),
   };
   let result = fun(data, zero_copy);
-  Ok(result)
+  Ok(result.into())
 }

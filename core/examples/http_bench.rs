@@ -13,7 +13,7 @@ extern crate log;
 extern crate lazy_static;
 
 use deno::*;
-use futures::future::lazy;
+use futures01::future::lazy;
 use std::collections::HashMap;
 use std::env;
 use std::net::SocketAddr;

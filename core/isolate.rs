@@ -15,11 +15,11 @@ use crate::libdeno::Snapshot1;
 use crate::libdeno::Snapshot2;
 use crate::shared_queue::SharedQueue;
 use crate::shared_queue::RECOMMENDED_SIZE;
-use futures::stream::{FuturesUnordered, Stream};
-use futures::task;
-use futures::Async::*;
-use futures::Future;
-use futures::Poll;
+use futures01::stream::{FuturesUnordered, Stream};
+use futures01::task;
+use futures01::Async::*;
+use futures01::Future;
+use futures01::Poll;
 use libc::c_char;
 use libc::c_void;
 use std::ffi::CStr;
@@ -585,12 +585,12 @@ impl Future for Isolate {
 
     // We're idle if pending_ops is empty.
     if self.pending_ops.is_empty() {
-      Ok(futures::Async::Ready(()))
+      Ok(futures01::Async::Ready(()))
     } else {
       if self.have_unpolled_ops {
         task::current().notify();
       }
-      Ok(futures::Async::NotReady)
+      Ok(futures01::Async::NotReady)
     }
   }
 }
@@ -625,10 +625,10 @@ pub fn js_check(r: Result<(), JSError>) {
 #[cfg(test)]
 pub mod tests {
   use super::*;
-  use futures::executor::spawn;
-  use futures::future::lazy;
-  use futures::future::ok;
-  use futures::Async;
+  use futures01::executor::spawn;
+  use futures01::future::lazy;
+  use futures01::future::ok;
+  use futures01::Async;
   use std::ops::FnOnce;
   use std::sync::atomic::{AtomicUsize, Ordering};
 
