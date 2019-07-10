@@ -72,7 +72,7 @@ before_script:
 script:
 - ./tools/lint.py
 - ./tools/test_format.py
-- ./tools/build.py -C target/release
+- ./tools/build.py --release -C target/release
 - DENO_BUILD_MODE=release ./tools/test.py
 
 jobs:
