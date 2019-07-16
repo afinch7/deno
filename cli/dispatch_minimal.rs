@@ -123,7 +123,7 @@ pub fn dispatch_minimal(
   if is_sync {
     Op::Sync(futures::executor::block_on(fut))
   } else {
-    Op::Async(fut)
+    Op::Async(fut) as CoreOp
   }
 }
 
