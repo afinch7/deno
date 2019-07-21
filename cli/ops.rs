@@ -2199,7 +2199,7 @@ fn op_plugin_open(
 ) -> CliOpResult {
   let cmd_id = base.cmd_id();
   let inner = base.inner_as_plugin_open().unwrap();
-  let (filename, filename_) = resolve_from_cwd(inner.filename().unwrap())?;
+  let (filename, filename_) = deno_fs::resolve_from_cwd(inner.filename().unwrap())?;
 
   state.check_plugins(&filename_)?;
 
@@ -2277,10 +2277,9 @@ fn op_plugin_call(
         },
       ))
     }
-    Op::Async(result) => Ok(Op::Async(Box::new(
+    Op::Async(result) => Ok(Op::Async(
       result
-        .map_err(|_| panic!("Plugin op returned error future."))
-        .and_then(move |buf| {
+        .map(move |buf| {
           let builder = &mut FlatBufferBuilder::new();
           let data = Some(builder.create_vector(&buf));
           let msg_inner = msg::PluginCallRes::create(
@@ -2297,7 +2296,7 @@ fn op_plugin_call(
               ..Default::default()
             },
           ))
-        }),
-    ))),
+        }).boxed(),
+    )),
   }
 }

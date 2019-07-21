@@ -1320,7 +1320,7 @@ name = "test_plugin"
 version = "0.1.0"
 dependencies = [
  "deno 0.12.0",
- "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

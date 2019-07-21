@@ -1,8 +1,9 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
+#![feature(async_await)]
 use deno::CoreOp;
 use deno::Op;
 use deno::{Buf, PinnedBuf};
-use futures::future::lazy;
+use futures::future::FutureExt;
 
 #[macro_use]
 extern crate deno;
@@ -32,12 +33,13 @@ pub fn op_async_test_op(data: &[u8], zero_copy: Option<PinnedBuf>) -> CoreOp {
       data_str, buf_str
     );
   }
-  let op = Box::new(lazy(move || {
+  let op = async move {
+    std::thread::sleep_ms(8000);
     let result = b"test";
     let result_box: Buf = Box::new(*result);
-    Ok(result_box)
-  }));
-  Op::Async(op)
+    result_box
+  };
+  Op::Async(op.boxed())
 }
 
 declare_plugin_op!(async_test_op, op_async_test_op);
