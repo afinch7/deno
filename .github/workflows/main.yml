@@ -10,6 +10,8 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: actions/setup-node@v1
+    - name: Setup
+      run: ./tools/setup.py
     - name: Check Format
       run: ./tools/test_format.py
     - name: Lint
