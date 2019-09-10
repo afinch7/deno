@@ -3,12 +3,13 @@ name: Rust
 on: [push, pull_request]
 
 jobs:
-  build:
+  pre_checks:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v1
+    - uses: actions/setup-node@v1
     - name: Check Format
       run: ./tools/test_format.py
     - name: Lint
