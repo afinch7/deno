@@ -1,4 +1,4 @@
-name: Rust
+name: 'Deno Cli'
 
 on: [push, pull_request]
 
@@ -20,3 +20,25 @@ jobs:
       run: ./tools/test_format.py
     - name: Lint
       run: ./tools/lint.py
+
+  build_and_test:
+    needs: pre_checks
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+
+    steps:
+    - uses: actions/checkout@v1
+      with: 
+        submodules: true
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 12.x 
+    - name: Setup
+      run: ./tools/setup.py
+    - name: Build
+      run: cargo build --release --locked -vv
+    - name: Test
+      run: DENO_BUILD_MODE=release ./tools/test.py
