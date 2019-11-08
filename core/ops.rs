@@ -6,10 +6,11 @@ use std::collections::HashMap;
 
 pub type Buf = Box<[u8]>;
 
-pub type OpAsyncFuture<E> = Box<dyn Future<Item = Buf, Error = E> + Send>;
+pub type OpAsyncFuture<E> =
+  Box<dyn Future<Output = Result<Buf, E>> + Unpin + Send>;
 
 pub(crate) type PendingOpFuture =
-  Box<dyn Future<Item = (OpId, Buf), Error = CoreError> + Send>;
+  Box<dyn Future<Output = Result<(OpId, Buf), CoreError>> + Unpin + Send>;
 
 pub type OpResult<E> = Result<Op<E>, E>;
 
