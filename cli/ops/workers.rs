@@ -11,15 +11,16 @@ use crate::worker::Worker;
 use deno::*;
 use futures;
 use futures::future::FutureExt;
-use futures::stream::StreamExt;
+use futures::future::TryFutureExt;
 use futures::sink::SinkExt;
+use futures::stream::StreamExt;
 use std;
+use std::convert::From;
 use std::future::Future;
+use std::pin::Pin;
+use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
-use std::pin::Pin;
-use std::convert::From;
-use std::sync::atomic::Ordering;
 
 pub fn init(i: &mut Isolate, s: &ThreadSafeState) {
   i.register_op(
@@ -75,14 +76,13 @@ fn op_worker_get_message(
     state: state.clone(),
   };
 
-  let op = op
-    .then(move |maybe_buf| {
-      debug!("op_worker_get_message");
+  let op = op.then(move |maybe_buf| {
+    debug!("op_worker_get_message");
 
-      futures::future::ok(json!({
-        "data": maybe_buf.map(|buf| buf.to_owned())
-      }))
-    });
+    futures::future::ok(json!({
+      "data": maybe_buf.map(|buf| buf.to_owned())
+    }))
+  });
 
   Ok(JsonOp::Async(op.boxed()))
 }
@@ -96,8 +96,7 @@ fn op_worker_post_message(
   let d = Vec::from(data.unwrap().as_ref()).into_boxed_slice();
   let mut channels = state.worker_channels.lock().unwrap();
   let sender = &mut channels.sender;
-  futures::executor::block_on(sender
-    .send(d))
+  futures::executor::block_on(sender.send(d))
     .map_err(|e| DenoError::new(ErrorKind::Other, e.to_string()))?;
 
   Ok(JsonOp::Sync(json!({})))
@@ -166,9 +165,9 @@ fn op_create_worker(
 
   let op = worker
     .execute_mod_async(&module_specifier, None, false)
-    .and_then(move |()| Ok(exec_cb(worker)));
+    .and_then(move |()| futures::future::ok(exec_cb(worker)));
 
-  let result = op.wait()?;
+  let result = futures::executor::block_on(op)?;
   Ok(JsonOp::Sync(result))
 }
 
@@ -226,7 +225,7 @@ fn op_host_get_message(
       }))
     });
 
-  Ok(JsonOp::Async(Box::new(op)))
+  Ok(JsonOp::Async(op.boxed()))
 }
 
 #[derive(Deserialize)]

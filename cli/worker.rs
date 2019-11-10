@@ -8,18 +8,18 @@ use deno::ErrBox;
 use deno::ModuleSpecifier;
 use deno::RecursiveLoad;
 use deno::StartupData;
-use futures::sink::SinkExt;
-use futures::stream::StreamExt;
 use futures::channel::mpsc;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
-use std::future::Future;
+use futures::sink::SinkExt;
+use futures::stream::StreamExt;
 use std::env;
-use std::task::Context;
-use std::task::Poll;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 use url::Url;
 
 /// Wraps mpsc channels so they can be referenced
@@ -234,7 +234,8 @@ mod tests {
             eprintln!("execute_mod err {:?}", err);
           }
           tokio_util::panic_on_error(worker)
-        }).await
+        })
+        .await
     });
 
     let metrics = &state_.metrics;
@@ -275,7 +276,8 @@ mod tests {
             eprintln!("execute_mod err {:?}", err);
           }
           tokio_util::panic_on_error(worker)
-        }).await
+        })
+        .await
     });
 
     let metrics = &state_.metrics;
@@ -325,7 +327,8 @@ mod tests {
             eprintln!("execute_mod err {:?}", err);
           }
           tokio_util::panic_on_error(worker)
-        }).await
+        })
+        .await
     });
 
     assert_eq!(state_.metrics.resolve_count.load(Ordering::SeqCst), 3);
@@ -375,17 +378,22 @@ mod tests {
 
       let worker_ = worker.clone();
 
-      tokio::spawn(worker.then(move |r| {
-          r.unwrap();
-          futures::future::ok(())
-        }).compat());
+      tokio::spawn(
+        worker
+          .then(move |r| {
+            r.unwrap();
+            futures::future::ok(())
+          })
+          .compat(),
+      );
 
       let msg = json!("hi").to_string().into_boxed_str().into_boxed_bytes();
 
       let r = worker_.post_message(msg);
       assert!(r.is_ok());
 
-      let maybe_msg = futures::executor::block_on(worker_.get_message()).unwrap();
+      let maybe_msg =
+        futures::executor::block_on(worker_.get_message()).unwrap();
       assert!(maybe_msg.is_some());
       // Check if message received is [1, 2, 3] in json
       assert_eq!(*maybe_msg.unwrap(), *b"[1,2,3]");
@@ -413,10 +421,15 @@ mod tests {
           println!("workers.rs after resource close");
           r.unwrap();
           futures::future::ok(())
-        }).shared();
+        })
+        .shared();
 
       let worker_future_ = worker_future.clone();
-      tokio::spawn(worker_future_.then(|_| futures::future::ok(())).compat());
+      tokio::spawn(
+        worker_future_
+          .then(|_: Result<(), ()>| futures::future::ok(()))
+          .compat(),
+      );
 
       let msg = json!("hi").to_string().into_boxed_str().into_boxed_bytes();
       let r = worker_.post_message(msg);
@@ -433,8 +446,11 @@ mod tests {
       let mut worker = create_test_worker();
       let module_specifier =
         ModuleSpecifier::resolve_url_or_path("does-not-exist").unwrap();
-      let result = futures::executor::block_on(worker
-        .execute_mod_async(&module_specifier, None, false));
+      let result = futures::executor::block_on(worker.execute_mod_async(
+        &module_specifier,
+        None,
+        false,
+      ));
       assert!(result.is_err());
     })
   }
@@ -452,8 +468,11 @@ mod tests {
         .to_owned();
       let module_specifier =
         ModuleSpecifier::resolve_url_or_path(&p.to_string_lossy()).unwrap();
-      let result = futures::executor::block_on(worker
-        .execute_mod_async(&module_specifier, None, false));
+      let result = futures::executor::block_on(worker.execute_mod_async(
+        &module_specifier,
+        None,
+        false,
+      ));
       assert!(result.is_ok());
     })
   }

@@ -1,11 +1,11 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use deno::ErrBox;
 use std::future::Future;
-use std::task::Context;
-use std::task::Poll;
-use std::pin::Pin;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
 /// Resolve network address. Returns a future.
 pub fn resolve_addr(hostname: &str, port: u16) -> ResolveAddrFuture {
@@ -23,7 +23,7 @@ pub struct ResolveAddrFuture {
 impl Future for ResolveAddrFuture {
   type Output = Result<SocketAddr, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
     let inner = self.get_mut();
     // The implementation of this is not actually async at the moment,
     // however we intend to use async DNS resolution in the future and

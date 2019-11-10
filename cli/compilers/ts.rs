@@ -15,9 +15,9 @@ use crate::worker::Worker;
 use deno::Buf;
 use deno::ErrBox;
 use deno::ModuleSpecifier;
-use futures::Future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
+use futures::Future;
 use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
@@ -273,7 +273,7 @@ impl TsCompiler {
     let worker = TsCompiler::setup_worker(global_state.clone());
     let worker_ = worker.clone();
     let first_msg_fut = async move {
-      worker.post_message(req_msg);
+      worker.post_message(req_msg).unwrap();
       let result = worker.await;
       if let Err(err) = result {
         // TODO(ry) Need to forward the error instead of exiting.
@@ -376,13 +376,14 @@ impl TsCompiler {
     );
 
     let worker = TsCompiler::setup_worker(global_state.clone());
+    let worker_ = worker.clone();
     let compiling_job = global_state
       .progress
       .add("Compile", &module_url.to_string());
     let global_state_ = global_state.clone();
 
     let first_msg_fut = async move {
-      worker.post_message(req_msg);
+      worker.post_message(req_msg).unwrap();
       let result = worker.await;
       if let Err(err) = result {
         // TODO(ry) Need to forward the error instead of exiting.
@@ -390,7 +391,7 @@ impl TsCompiler {
         std::process::exit(1);
       }
       debug!("Sent message to worker");
-      worker.get_message().await
+      worker_.get_message().await
     };
 
     let fut = first_msg_fut
@@ -411,13 +412,18 @@ impl TsCompiler {
       .and_then(move |_| {
         // if we are this far it means compilation was successful and we can
         // load compiled filed from disk
-        futures::future::ready(global_state_
-          .ts_compiler
-          .get_compiled_module(&source_file_.url)
-          .map_err(|e| {
-            // TODO: this situation shouldn't happen
-            panic!("Expected to find compiled file: {} {}", e, source_file_.url)
-          }))
+        futures::future::ready(
+          global_state_
+            .ts_compiler
+            .get_compiled_module(&source_file_.url)
+            .map_err(|e| {
+              // TODO: this situation shouldn't happen
+              panic!(
+                "Expected to find compiled file: {} {}",
+                e, source_file_.url
+              )
+            }),
+        )
       })
       .and_then(move |compiled_module| {
         // Explicit drop to keep reference alive until future completes.
@@ -653,7 +659,6 @@ mod tests {
   use crate::fs as deno_fs;
   use crate::tokio_util;
   use deno::ModuleSpecifier;
-  use futures::future::lazy;
   use std::path::PathBuf;
   use tempfile::TempDir;
 
@@ -679,7 +684,8 @@ mod tests {
       String::from("hello.js"),
     ]);
 
-    tokio_util::run(mock_state
+    tokio_util::run(
+      mock_state
         .ts_compiler
         .compile_async(mock_state.clone(), &out)
         .then(|result| {
@@ -690,7 +696,7 @@ mod tests {
             .as_bytes()
             .starts_with("console.log(\"Hello World\");".as_bytes()));
           futures::future::ok(())
-        })
+        }),
     )
   }
 
@@ -723,7 +729,7 @@ mod tests {
         .then(|result| {
           assert!(result.is_ok());
           futures::future::ok(())
-        })
+        }),
     )
   }
 

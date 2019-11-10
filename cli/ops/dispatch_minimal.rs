@@ -138,21 +138,19 @@ pub fn minimal_op(
     let min_op = d(rid, zero_copy);
 
     // Convert to CoreOp
-    let fut = Box::new(min_op.then(move |result| {
-      match result {
-        Ok(r) => {
-          record.result = r;
-          futures::future::ok(record.into())
-        }
-        Err(err) => {
-          let error_record = ErrorRecord {
-            promise_id: record.promise_id,
-            arg: -1,
-            error_code: err.kind() as i32,
-            error_message: err.to_string().as_bytes().to_owned(),
-          };
-          futures::future::ok(error_record.into())
-        }
+    let fut = Box::new(min_op.then(move |result| match result {
+      Ok(r) => {
+        record.result = r;
+        futures::future::ok(record.into())
+      }
+      Err(err) => {
+        let error_record = ErrorRecord {
+          promise_id: record.promise_id,
+          arg: -1,
+          error_code: err.kind() as i32,
+          error_message: err.to_string().as_bytes().to_owned(),
+        };
+        futures::future::ok(error_record.into())
       }
     }));
 

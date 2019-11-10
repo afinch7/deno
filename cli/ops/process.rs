@@ -8,12 +8,18 @@ use crate::signal::kill;
 use crate::state::ThreadSafeState;
 use deno::*;
 use futures;
-use futures::Future;
-use futures::Poll;
+use futures::future::FutureExt;
+use futures::future::TryFutureExt;
 use std;
 use std::convert::From;
+use std::future::Future;
+use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
+use std::task::Context;
+use std::task::Poll;
+use tokio::prelude::Async;
+use tokio::prelude::Future as OldFuture;
 use tokio_process::CommandExt;
 
 #[cfg(unix)]
@@ -83,7 +89,8 @@ fn op_run(
   // TODO: make this work with other resources, eg. sockets
   let stdin_rid = run_args.stdin_rid;
   if stdin_rid > 0 {
-    let file = (CloneFileFuture { rid: stdin_rid }).wait()?.into_std();
+    let file = futures::executor::block_on(CloneFileFuture { rid: stdin_rid })?
+      .into_std();
     c.stdin(file);
   } else {
     c.stdin(subprocess_stdio_map(run_args.stdin.as_ref()));
@@ -91,7 +98,9 @@ fn op_run(
 
   let stdout_rid = run_args.stdout_rid;
   if stdout_rid > 0 {
-    let file = (CloneFileFuture { rid: stdout_rid }).wait()?.into_std();
+    let file =
+      futures::executor::block_on(CloneFileFuture { rid: stdout_rid })?
+        .into_std();
     c.stdout(file);
   } else {
     c.stdout(subprocess_stdio_map(run_args.stdout.as_ref()));
@@ -99,7 +108,9 @@ fn op_run(
 
   let stderr_rid = run_args.stderr_rid;
   if stderr_rid > 0 {
-    let file = (CloneFileFuture { rid: stderr_rid }).wait()?.into_std();
+    let file =
+      futures::executor::block_on(CloneFileFuture { rid: stderr_rid })?
+        .into_std();
     c.stderr(file);
   } else {
     c.stderr(subprocess_stdio_map(run_args.stderr.as_ref()));
@@ -148,16 +159,19 @@ pub struct ChildStatus {
 }
 
 impl Future for ChildStatus {
-  type Item = ExitStatus;
-  type Error = ErrBox;
+  type Output = Result<ExitStatus, ErrBox>;
 
-  fn poll(&mut self) -> Poll<ExitStatus, ErrBox> {
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
     let mut table = resources::lock_resource_table();
     let child_resource = table
       .get_mut::<ChildResource>(self.rid)
       .ok_or_else(bad_resource)?;
     let child = &mut child_resource.child;
-    child.poll().map_err(ErrBox::from)
+    match child.poll() {
+      Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
+      Ok(Async::NotReady) => Poll::Pending,
+      Err(e) => Poll::Ready(Err(ErrBox::from(e))),
+    }
   }
 }
 
@@ -199,7 +213,7 @@ fn op_run_status(
     }))
   });
 
-  Ok(JsonOp::Async(Box::new(future)))
+  Ok(JsonOp::Async(future.boxed()))
 }
 
 #[derive(Deserialize)]

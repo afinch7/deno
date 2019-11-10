@@ -17,8 +17,8 @@ use deno::ErrBox;
 use deno::ModuleSpecifier;
 use futures::future::TryFutureExt;
 use std;
-use std::future::Future;
 use std::env;
+use std::future::Future;
 use std::ops::Deref;
 use std::str;
 use std::sync::Arc;
@@ -157,7 +157,7 @@ impl ThreadSafeGlobalState {
             g.insert(&compiled_module);
           } else {
             let check = match g.check(&compiled_module) {
-              Err(e) => return futures::future::err(e),
+              Err(e) => return futures::future::err(ErrBox::from(e)),
               Ok(v) => v,
             };
             if !check {

@@ -6,9 +6,9 @@ use std::cmp::min;
 use std::io;
 use std::io::Read;
 use tokio::io::AsyncRead;
-use tokio::prelude::Stream as OldStream;
 use tokio::prelude::Async;
 use tokio::prelude::Poll;
+use tokio::prelude::Stream as OldStream;
 
 /// Wraps `reqwest::Decoder` so that it can be exposed as an `AsyncRead` and integrated
 /// into resources more easily.

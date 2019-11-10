@@ -21,9 +21,9 @@ use std::fs;
 use std::future::Future;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::result::Result;
 use std::str;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use url;
@@ -346,7 +346,8 @@ impl SourceFileFetcher {
           ),
         )
         .into(),
-      ).boxed();
+      )
+      .boxed();
     }
 
     let download_job = self.progress.add("Download", &module_url.to_string());

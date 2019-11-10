@@ -15,9 +15,9 @@ use std;
 use std::convert::From;
 use std::future::Future;
 use std::io::SeekFrom;
+use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
-use std::pin::Pin;
 use tokio;
 
 pub fn init(i: &mut Isolate, s: &ThreadSafeState) {
@@ -93,12 +93,14 @@ fn op_open(
   }
 
   let is_sync = args.promise_id.is_none();
-  let op = futures::compat::Compat01As03::new(tokio::prelude::Future::map_err(open_options.open(filename), ErrBox::from)).and_then(
-    move |fs_file| {
-      let rid = resources::add_fs_file(fs_file);
-      futures::future::ok(json!(rid))
-    },
-  );
+  let op = futures::compat::Compat01As03::new(tokio::prelude::Future::map_err(
+    open_options.open(filename),
+    ErrBox::from,
+  ))
+  .and_then(move |fs_file| {
+    let rid = resources::add_fs_file(fs_file);
+    futures::future::ok(json!(rid))
+  });
 
   if is_sync {
     let buf = futures::executor::block_on(op)?;
@@ -134,7 +136,7 @@ pub struct SeekFuture {
 impl Future for SeekFuture {
   type Output = Result<u64, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
     let mut table = resources::lock_resource_table();
     let resource = table
       .get_mut::<CliResource>(self.rid)

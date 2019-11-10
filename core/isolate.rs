@@ -1312,7 +1312,7 @@ pub mod tests {
       shared.terminate_execution();
 
       // allow shutdown
-      std::thread::sleep(std::time::Duration::from_millis(100));
+      std::thread::sleep(std::time::Duration::from_millis(200));
 
       // unless reported otherwise the test should fail after this point
       tx_clone.send(false).ok();

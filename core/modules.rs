@@ -14,19 +14,19 @@ use crate::isolate::SourceCodeInfo;
 use crate::libdeno::deno_dyn_import_id;
 use crate::libdeno::deno_mod;
 use crate::module_specifier::ModuleSpecifier;
-use futures::stream::FuturesUnordered;
-use futures::stream::TryStreamExt;
-use futures::stream::Stream;
 use futures::future::FutureExt;
-use std::future::Future;
-use std::task::Poll;
-use std::task::Context;
-use std::pin::Pin;
+use futures::stream::FuturesUnordered;
+use futures::stream::Stream;
+use futures::stream::TryStreamExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::task::Context;
+use std::task::Poll;
 
 pub type SourceCodeInfoFuture =
   dyn Future<Output = Result<SourceCodeInfo, ErrBox>> + Send;
@@ -204,7 +204,7 @@ impl<L: Loader + Unpin> RecursiveLoad<L> {
           Event::Fetch(info) => {
             let mut isolate = isolate.lock().unwrap();
             load.register(info, &mut isolate)?;
-          },
+          }
           Event::Instantiate(id) => return Ok(id),
         }
       }
@@ -310,7 +310,10 @@ impl<L: Loader + Unpin> ImportStream for RecursiveLoad<L> {
 impl<L: Loader + Unpin> Stream for RecursiveLoad<L> {
   type Item = Result<Event, ErrBox>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+  fn poll_next(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+  ) -> Poll<Option<Self::Item>> {
     let inner = self.get_mut();
     match inner.state {
       State::ResolveMain(ref specifier, Some(ref code)) => {
@@ -604,11 +607,11 @@ mod tests {
   use super::*;
   use crate::isolate::js_check;
   use crate::isolate::tests::*;
-  use futures::stream::StreamExt;
   use futures::future::FutureExt;
-  use std::future::Future;
+  use futures::stream::StreamExt;
   use std::error::Error;
   use std::fmt;
+  use std::future::Future;
 
   struct MockLoader {
     pub loads: Arc<Mutex<Vec<String>>>,
@@ -1007,7 +1010,8 @@ mod tests {
       let loads = loader.loads.clone();
       let mut recursive_load =
         RecursiveLoad::main("/main.js", None, loader, modules)
-          .get_future(isolate).boxed();
+          .get_future(isolate)
+          .boxed();
 
       let result = recursive_load.poll_unpin(&mut cx);
       assert!(result.is_pending());

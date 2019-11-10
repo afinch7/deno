@@ -11,8 +11,8 @@
 use crate::tokio_util::panic_on_error;
 use futures::channel::oneshot;
 use futures::future::FutureExt;
-use std::time::Instant;
 use std::future::Future;
+use std::time::Instant;
 use tokio::timer::Delay;
 
 #[derive(Default)]
@@ -43,7 +43,8 @@ impl GlobalTimer {
     let (tx, rx) = oneshot::channel();
     self.tx = Some(tx);
 
-    let delay = panic_on_error(futures::compat::Compat01As03::new(Delay::new(deadline)));
+    let delay =
+      panic_on_error(futures::compat::Compat01As03::new(Delay::new(deadline)));
     let rx = panic_on_error(rx);
 
     futures::future::select(delay, rx).then(|_| futures::future::ok(()))

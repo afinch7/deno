@@ -15,15 +15,15 @@ extern crate lazy_static;
 use deno::*;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
-use std::future::Future;
 use std::env;
+use std::future::Future;
 use std::io::Error;
 use std::io::ErrorKind;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::task::Poll;
-use std::pin::Pin;
 use tokio::prelude::Async;
 use tokio::prelude::AsyncRead;
 use tokio::prelude::AsyncWrite;
@@ -177,7 +177,6 @@ fn main() {
     })
     .boxed();
 
-
   if args.iter().any(|a| a == "--multi-thread") {
     println!("multi-thread");
     tokio::run(main_future.compat());
@@ -208,7 +207,10 @@ fn lock_resource_table<'a>() -> MutexGuard<'a, ResourceTable> {
   RESOURCE_TABLE.lock().unwrap()
 }
 
-fn op_accept(record: Record, _zero_copy_buf: Option<PinnedBuf>) -> Pin<Box<HttpOp>> {
+fn op_accept(
+  record: Record,
+  _zero_copy_buf: Option<PinnedBuf>,
+) -> Pin<Box<HttpOp>> {
   let rid = record.arg as u32;
   debug!("accept {}", rid);
   let fut = futures::future::poll_fn(move |_cx| {
@@ -242,7 +244,10 @@ fn op_listen(
   futures::future::ok(rid as i32).boxed()
 }
 
-fn op_close(record: Record, _zero_copy_buf: Option<PinnedBuf>) -> Pin<Box<HttpOp>> {
+fn op_close(
+  record: Record,
+  _zero_copy_buf: Option<PinnedBuf>,
+) -> Pin<Box<HttpOp>> {
   debug!("close");
   let rid = record.arg as u32;
   let mut table = lock_resource_table();
@@ -253,7 +258,10 @@ fn op_close(record: Record, _zero_copy_buf: Option<PinnedBuf>) -> Pin<Box<HttpOp
   fut.boxed()
 }
 
-fn op_read(record: Record, zero_copy_buf: Option<PinnedBuf>) -> Pin<Box<HttpOp>> {
+fn op_read(
+  record: Record,
+  zero_copy_buf: Option<PinnedBuf>,
+) -> Pin<Box<HttpOp>> {
   let rid = record.arg as u32;
   debug!("read rid={}", rid);
   let mut zero_copy_buf = zero_copy_buf.unwrap();
@@ -273,7 +281,10 @@ fn op_read(record: Record, zero_copy_buf: Option<PinnedBuf>) -> Pin<Box<HttpOp>>
   fut.boxed()
 }
 
-fn op_write(record: Record, zero_copy_buf: Option<PinnedBuf>) -> Pin<Box<HttpOp>> {
+fn op_write(
+  record: Record,
+  zero_copy_buf: Option<PinnedBuf>,
+) -> Pin<Box<HttpOp>> {
   let rid = record.arg as u32;
   debug!("write rid={}", rid);
   let zero_copy_buf = zero_copy_buf.unwrap();

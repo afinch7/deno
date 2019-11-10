@@ -15,7 +15,7 @@ use deno::Loader;
 use deno::ModuleSpecifier;
 use deno::Op;
 use deno::PinnedBuf;
-use futures::future::Shared;
+use futures::channel::mpsc as async_mpsc;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::channel::mpsc;

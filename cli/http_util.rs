@@ -13,10 +13,9 @@ use reqwest::header::LOCATION;
 use reqwest::header::USER_AGENT;
 use reqwest::r#async::Client;
 use reqwest::RedirectPolicy;
-use url::Url;
 use std::future::Future;
 use std::pin::Pin;
-use tokio::prelude::Future as OldFuture;
+use url::Url;
 
 /// Create new instance of async reqwest::Client. This client supports
 /// proxies and doesn't follow redirects.
@@ -81,16 +80,15 @@ pub fn fetch_string_once(
   let url = url.clone();
   let client = get_client();
 
-  futures::compat::Compat01As03::new(client
-    .get(url.clone())
-    .send())
+  futures::compat::Compat01As03::new(client.get(url.clone()).send())
     .map_err(ErrBox::from)
     .and_then(
-      move |mut response| -> Pin<Box<
-        dyn Future<Output = Result<FetchAttempt, ErrBox>> + Send,
-      >> {
+      move |mut response| -> Pin<
+        Box<dyn Future<Output = Result<FetchAttempt, ErrBox>> + Send>,
+      > {
         if response.status().is_redirection() {
-          let location_string = response.headers()
+          let location_string = response
+            .headers()
             .get(LOCATION)
             .expect("url redirection should provide 'location' header")
             .to_str()
@@ -103,14 +101,21 @@ pub fn fetch_string_once(
             future::ok(None),
             future::ok(None),
             future::ok(Some(FetchOnceResult::Redirect(new_url))),
-          ).boxed();
+          )
+          .boxed();
         }
 
-        if response.status().is_client_error() || response.status().is_server_error() {
-          return future::err(DenoError::new(
-            deno_error::ErrorKind::Other,
-            format!("Import '{}' failed: {}", &url, response.status()),
-          ).into()).boxed();
+        if response.status().is_client_error()
+          || response.status().is_server_error()
+        {
+          return future::err(
+            DenoError::new(
+              deno_error::ErrorKind::Other,
+              format!("Import '{}' failed: {}", &url, response.status()),
+            )
+            .into(),
+          )
+          .boxed();
         }
 
         let content_type = response
@@ -118,13 +123,17 @@ pub fn fetch_string_once(
           .get(CONTENT_TYPE)
           .map(|content_type| content_type.to_str().unwrap().to_owned());
 
-        let body = futures::compat::Compat01As03::new(response
-          .text())
+        let body = futures::compat::Compat01As03::new(response.text())
           .map_ok(|v| Some(v))
           .map_err(ErrBox::from);
 
-        futures::future::try_join3(body, future::ok(content_type), future::ok(None)).boxed()
-      }
+        futures::future::try_join3(
+          body,
+          future::ok(content_type),
+          future::ok(None),
+        )
+        .boxed()
+      },
     )
     .and_then(move |(maybe_code, maybe_content_type, maybe_redirect)| {
       if let Some(redirect) = maybe_redirect {

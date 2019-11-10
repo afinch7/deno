@@ -15,19 +15,18 @@ pub use deno::Resource;
 pub use deno::ResourceId;
 use deno::ResourceTable;
 
-use futures;
 use reqwest::r#async::Decoder as ReqwestDecoder;
 use std;
 use std::future::Future;
-use std::task::Context;
-use std::task::Poll;
 use std::pin::Pin;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::task::Context;
+use std::task::Poll;
 use tokio;
-use tokio::prelude::Async;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
+use tokio::prelude::Async;
 use tokio_process;
 use tokio_rustls::client::TlsStream as ClientTlsStream;
 use tokio_rustls::server::TlsStream as ServerTlsStream;
@@ -208,7 +207,7 @@ pub struct CloneFileFuture {
 impl Future for CloneFileFuture {
   type Output = Result<tokio::fs::File, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
     let inner = self.get_mut();
     let mut table = lock_resource_table();
     let repr = table
@@ -221,7 +220,7 @@ impl Future for CloneFileFuture {
           Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
           Ok(Async::NotReady) => Poll::Pending,
         }
-      },
+      }
       _ => Poll::Ready(Err(bad_resource())),
     }
   }

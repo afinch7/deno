@@ -115,11 +115,10 @@ fn op_fetch_source_files(
               String::from_utf8(file.source_code).unwrap()
             },
           })
-        })
-        .collect();
+          .collect();
 
-      futures::future::ok(res)
-    });
+        futures::future::ok(res)
+      });
 
   Ok(JsonOp::Async(future.boxed()))
 }

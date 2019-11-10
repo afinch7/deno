@@ -10,9 +10,9 @@ use crate::state::ThreadSafeState;
 use deno::*;
 use futures::future::FutureExt;
 use std::future::Future;
-use std::task::Poll;
-use std::task::Context;
 use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
 pub fn init(i: &mut Isolate, s: &ThreadSafeState) {
   i.register_op("read", s.core_op(minimal_op(op_read)));
@@ -58,7 +58,7 @@ where
 {
   type Output = Result<i32, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
     let inner = self.get_mut();
     if inner.state == IoState::Done {
       panic!("poll a Read after it's done");
@@ -66,7 +66,7 @@ where
 
     let mut table = resources::lock_resource_table();
     let resource = table
-      .get_mut::<CliResource>(self.rid)
+      .get_mut::<CliResource>(inner.rid)
       .ok_or_else(bad_resource)?;
     let nread = match resource.poll_read(&mut inner.buf.as_mut()[..]) {
       Poll::Ready(Ok(v)) => v,
@@ -124,7 +124,7 @@ where
 {
   type Output = Result<i32, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
     let inner = self.get_mut();
     if inner.state == IoState::Done {
       panic!("poll a Read after it's done");

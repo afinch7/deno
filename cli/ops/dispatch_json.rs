@@ -6,10 +6,11 @@ pub use serde_derive::Deserialize;
 use serde_json::json;
 pub use serde_json::Value;
 use std::future::Future;
-use std::task::Poll;
 use std::pin::Pin;
+use std::task::Poll;
 
-pub type AsyncJsonOp = Pin<Box<dyn Future<Output = Result<Value, ErrBox>> + Send>>;
+pub type AsyncJsonOp =
+  Pin<Box<dyn Future<Output = Result<Value, ErrBox>> + Send>>;
 
 pub enum JsonOp {
   Sync(Value),
@@ -106,7 +107,7 @@ where
 
 pub fn blocking_json<F>(is_sync: bool, f: F) -> Result<JsonOp, ErrBox>
 where
-  F: 'static + Send + FnOnce() -> Result<Value, ErrBox>,
+  F: 'static + Send + FnOnce() -> Result<Value, ErrBox> + Unpin,
 {
   if is_sync {
     Ok(JsonOp::Sync(f()?))

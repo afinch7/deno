@@ -3,7 +3,6 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
-#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate serde_json;
@@ -65,7 +64,6 @@ use deno::ErrBox;
 use deno::ModuleSpecifier;
 use flags::DenoFlags;
 use flags::DenoSubcommand;
-use futures::future::lazy;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use log::Level;
@@ -279,17 +277,18 @@ fn fetch_command(flags: DenoFlags, argv: Vec<String>) {
   let (mut worker, state) = create_worker_and_state(flags, argv.clone());
 
   let main_module = state.main_module.as_ref().unwrap().clone();
-  
+
   // Setup runtime.
   js_check(worker.execute("denoMain()"));
   debug!("main_module {}", main_module);
 
-  let main_future = worker
-    .execute_mod_async(&main_module, None, true)
-    .then(|result| {
-      js_check(result);
-      futures::future::ok(())
-    });
+  let main_future =
+    worker
+      .execute_mod_async(&main_module, None, true)
+      .then(|result| {
+        js_check(result);
+        futures::future::ok(())
+      });
 
   tokio_util::run(main_future);
 }
@@ -312,9 +311,7 @@ fn eval_command(flags: DenoFlags, argv: Vec<String>) {
       js_check(worker.execute("window.dispatchEvent(new Event('load'))"));
       worker.then(move |result| {
         js_check(result);
-        js_check(
-          worker_.execute("window.dispatchEvent(new Event('unload'))"),
-        );
+        js_check(worker_.execute("window.dispatchEvent(new Event('unload'))"));
         futures::future::ok(())
       })
     })
@@ -360,11 +357,11 @@ fn run_repl(flags: DenoFlags, argv: Vec<String>) {
   // Setup runtime.
   js_check(worker.execute("denoMain()"));
   let main_future = worker
-      .then(|result| {
-        js_check(result);
-        futures::future::ok(())
-      })
-      .map_err(|(err, _worker): (ErrBox, Worker)| print_err_and_exit(err));
+    .then(|result| {
+      js_check(result);
+      futures::future::ok(())
+    })
+    .map_err(|(err, _worker): (ErrBox, Worker)| print_err_and_exit(err));
   tokio_util::run(main_future);
 }
 
@@ -374,7 +371,7 @@ fn run_script(flags: DenoFlags, argv: Vec<String>) {
 
   let main_module = state.main_module.as_ref().unwrap().clone();
   // Normal situation of executing a module.
-  
+
   // Setup runtime.
   js_check(worker.execute("denoMain()"));
   debug!("main_module {}", main_module);
@@ -389,7 +386,7 @@ fn run_script(flags: DenoFlags, argv: Vec<String>) {
           let g = lockfile.lock().unwrap();
           match g.write() {
             Err(e) => return futures::future::err(ErrBox::from(e)),
-            _ => {},
+            _ => {}
           };
         } else {
           eprintln!("--lock flag must be specified when using --lock-write");
@@ -402,9 +399,7 @@ fn run_script(flags: DenoFlags, argv: Vec<String>) {
       js_check(worker.execute("window.dispatchEvent(new Event('load'))"));
       worker.then(move |result| {
         js_check(result);
-        js_check(
-          worker_.execute("window.dispatchEvent(new Event('unload'))"),
-        );
+        js_check(worker_.execute("window.dispatchEvent(new Event('unload'))"));
         futures::future::ok(())
       })
     })

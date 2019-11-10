@@ -3,13 +3,13 @@ use deno::ErrBox;
 use futures;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
+use std::future::Future;
 use std::ops::FnOnce;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 use tokio;
 use tokio::runtime;
-use std::future::Future;
-use std::task::Poll;
-use std::task::Context;
-use std::pin::Pin;
 
 pub fn create_threadpool_runtime(
 ) -> Result<tokio::runtime::Runtime, tokio::io::Error> {
@@ -92,12 +92,13 @@ pub struct PollFn<F> {
 
 impl<O, F> Future for PollFn<F>
 where
-  F: FnOnce() -> Poll<O>,
+  F: FnOnce() -> Poll<O> + Unpin,
 {
   type Output = O;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-    let f = self.inner.take().expect("Inner fn has been taken.");
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+    let inner = self.get_mut();
+    let f = inner.inner.take().expect("Inner fn has been taken.");
     f()
   }
 }
