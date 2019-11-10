@@ -386,7 +386,7 @@ impl Isolate {
       }
       Op::Async(fut) => {
         let fut2 = fut.map_ok(move |buf| (op_id, buf));
-        isolate.pending_ops.push(Box::new(fut2));
+        isolate.pending_ops.push(fut2.boxed());
         isolate.have_unpolled_ops = true;
       }
     }
@@ -864,13 +864,13 @@ pub mod tests {
             assert_eq!(control.len(), 1);
             assert_eq!(control[0], 42);
             let buf = vec![43u8, 0, 0, 0].into_boxed_slice();
-            Op::Async(Box::new(futures::future::ok(buf)))
+            Op::Async(futures::future::ok(buf).boxed())
           }
           Mode::AsyncDelayed => {
             assert_eq!(control.len(), 1);
             assert_eq!(control[0], 42);
             let buf = vec![43u8, 0, 0, 0].into_boxed_slice();
-            Op::Async(Box::new(DelayedFuture::new(buf)))
+            Op::Async(DelayedFuture::new(buf).boxed())
           }
           Mode::OverflowReqSync => {
             assert_eq!(control.len(), 100 * 1024 * 1024);
@@ -889,7 +889,7 @@ pub mod tests {
           Mode::OverflowReqAsync => {
             assert_eq!(control.len(), 100 * 1024 * 1024);
             let buf = vec![43u8, 0, 0, 0].into_boxed_slice();
-            Op::Async(Box::new(DelayedFuture::new(buf)))
+            Op::Async(DelayedFuture::new(buf).boxed())
           }
           Mode::OverflowResAsync => {
             assert_eq!(control.len(), 1);
@@ -898,7 +898,7 @@ pub mod tests {
             vec.resize(100 * 1024 * 1024, 0);
             vec[0] = 4;
             let buf = vec.into_boxed_slice();
-            Op::Async(Box::new(DelayedFuture::new(buf)))
+            Op::Async(DelayedFuture::new(buf).boxed())
           }
         }
       };

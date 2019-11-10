@@ -3,14 +3,15 @@ pub use crate::libdeno::OpId;
 use crate::PinnedBuf;
 use futures::Future;
 use std::collections::HashMap;
+use std::pin::Pin;
 
 pub type Buf = Box<[u8]>;
 
 pub type OpAsyncFuture<E> =
-  Box<dyn Future<Output = Result<Buf, E>> + Unpin + Send>;
+  Pin<Box<dyn Future<Output = Result<Buf, E>> + Send>>;
 
 pub(crate) type PendingOpFuture =
-  Box<dyn Future<Output = Result<(OpId, Buf), CoreError>> + Unpin + Send>;
+  Pin<Box<dyn Future<Output = Result<(OpId, Buf), CoreError>> + Send>>;
 
 pub type OpResult<E> = Result<Op<E>, E>;
 
