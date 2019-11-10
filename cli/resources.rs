@@ -16,13 +16,16 @@ pub use deno::ResourceId;
 use deno::ResourceTable;
 
 use futures;
-use futures::Future;
-use futures::Poll;
 use reqwest::r#async::Decoder as ReqwestDecoder;
 use std;
+use std::future::Future;
+use std::task::Context;
+use std::task::Poll;
+use std::pin::Pin;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use tokio;
+use tokio::prelude::Async;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio_process;
@@ -85,11 +88,11 @@ pub fn lock_resource_table<'a>() -> MutexGuard<'a, ResourceTable> {
 /// `DenoAsyncRead` is the same as the `tokio_io::AsyncRead` trait
 /// but uses an `ErrBox` error instead of `std::io:Error`
 pub trait DenoAsyncRead {
-  fn poll_read(&mut self, buf: &mut [u8]) -> Poll<usize, ErrBox>;
+  fn poll_read(&mut self, buf: &mut [u8]) -> Poll<Result<usize, ErrBox>>;
 }
 
 impl DenoAsyncRead for CliResource {
-  fn poll_read(&mut self, buf: &mut [u8]) -> Poll<usize, ErrBox> {
+  fn poll_read(&mut self, buf: &mut [u8]) -> Poll<Result<usize, ErrBox>> {
     let r = match self {
       CliResource::FsFile(ref mut f) => f.poll_read(buf),
       CliResource::Stdin(ref mut f) => f.poll_read(buf),
@@ -100,24 +103,30 @@ impl DenoAsyncRead for CliResource {
       CliResource::ChildStdout(ref mut f) => f.poll_read(buf),
       CliResource::ChildStderr(ref mut f) => f.poll_read(buf),
       _ => {
-        return Err(bad_resource());
+        return Poll::Ready(Err(bad_resource()));
       }
     };
 
-    r.map_err(ErrBox::from)
+    let r = r.map_err(ErrBox::from);
+
+    match r {
+      Err(err) => Poll::Ready(Err(err)),
+      Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
+      Ok(Async::NotReady) => Poll::Pending,
+    }
   }
 }
 
 /// `DenoAsyncWrite` is the same as the `tokio_io::AsyncWrite` trait
 /// but uses an `ErrBox` error instead of `std::io:Error`
 pub trait DenoAsyncWrite {
-  fn poll_write(&mut self, buf: &[u8]) -> Poll<usize, ErrBox>;
+  fn poll_write(&mut self, buf: &[u8]) -> Poll<Result<usize, ErrBox>>;
 
-  fn shutdown(&mut self) -> Poll<(), ErrBox>;
+  fn shutdown(&mut self) -> Poll<Result<(), ErrBox>>;
 }
 
 impl DenoAsyncWrite for CliResource {
-  fn poll_write(&mut self, buf: &[u8]) -> Poll<usize, ErrBox> {
+  fn poll_write(&mut self, buf: &[u8]) -> Poll<Result<usize, ErrBox>> {
     let r = match self {
       CliResource::FsFile(ref mut f) => f.poll_write(buf),
       CliResource::Stdout(ref mut f) => f.poll_write(buf),
@@ -127,14 +136,20 @@ impl DenoAsyncWrite for CliResource {
       CliResource::ServerTlsStream(ref mut f) => f.poll_write(buf),
       CliResource::ChildStdin(ref mut f) => f.poll_write(buf),
       _ => {
-        return Err(bad_resource());
+        return Poll::Ready(Err(bad_resource()));
       }
     };
 
-    r.map_err(ErrBox::from)
+    let r = r.map_err(ErrBox::from);
+
+    match r {
+      Err(err) => Poll::Ready(Err(err)),
+      Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
+      Ok(Async::NotReady) => Poll::Pending,
+    }
   }
 
-  fn shutdown(&mut self) -> futures::Poll<(), ErrBox> {
+  fn shutdown(&mut self) -> Poll<Result<(), ErrBox>> {
     unimplemented!()
   }
 }
@@ -191,19 +206,23 @@ pub struct CloneFileFuture {
 }
 
 impl Future for CloneFileFuture {
-  type Item = tokio::fs::File;
-  type Error = ErrBox;
+  type Output = Result<tokio::fs::File, ErrBox>;
 
-  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    let inner = self.get_mut();
     let mut table = lock_resource_table();
     let repr = table
-      .get_mut::<CliResource>(self.rid)
+      .get_mut::<CliResource>(inner.rid)
       .ok_or_else(bad_resource)?;
     match repr {
       CliResource::FsFile(ref mut file) => {
-        file.poll_try_clone().map_err(ErrBox::from)
-      }
-      _ => Err(bad_resource()),
+        match file.poll_try_clone().map_err(ErrBox::from) {
+          Err(err) => Poll::Ready(Err(err)),
+          Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
+          Ok(Async::NotReady) => Poll::Pending,
+        }
+      },
+      _ => Poll::Ready(Err(bad_resource())),
     }
   }
 }

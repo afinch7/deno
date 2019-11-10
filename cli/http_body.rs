@@ -1,14 +1,14 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 
-use futures::stream::Stream;
-use futures::Async;
-use futures::Poll;
 use reqwest::r#async::Chunk;
 use reqwest::r#async::Decoder;
 use std::cmp::min;
 use std::io;
 use std::io::Read;
 use tokio::io::AsyncRead;
+use tokio::prelude::Stream as OldStream;
+use tokio::prelude::Async;
+use tokio::prelude::Poll;
 
 /// Wraps `reqwest::Decoder` so that it can be exposed as an `AsyncRead` and integrated
 /// into resources more easily.

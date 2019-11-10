@@ -10,11 +10,14 @@ use crate::state::ThreadSafeState;
 use crate::worker::Worker;
 use deno::*;
 use futures;
-use futures::Async;
-use futures::Future;
-use futures::Sink;
-use futures::Stream;
+use futures::future::FutureExt;
+use futures::stream::StreamExt;
+use futures::sink::SinkExt;
 use std;
+use std::future::Future;
+use std::task::Context;
+use std::task::Poll;
+use std::pin::Pin;
 use std::convert::From;
 use std::sync::atomic::Ordering;
 
@@ -52,13 +55,13 @@ struct GetMessageFuture {
 }
 
 impl Future for GetMessageFuture {
-  type Item = Option<Buf>;
-  type Error = ErrBox;
+  type Output = Option<Buf>;
 
-  fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
-    let mut channels = self.state.worker_channels.lock().unwrap();
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    let inner = self.get_mut();
+    let mut channels = inner.state.worker_channels.lock().unwrap();
     let receiver = &mut channels.receiver;
-    receiver.poll().map_err(ErrBox::from)
+    receiver.poll_next_unpin(cx)
   }
 }
 
@@ -73,8 +76,7 @@ fn op_worker_get_message(
   };
 
   let op = op
-    .map_err(move |_| -> ErrBox { unimplemented!() })
-    .and_then(move |maybe_buf| {
+    .then(move |maybe_buf| {
       debug!("op_worker_get_message");
 
       futures::future::ok(json!({
@@ -82,7 +84,7 @@ fn op_worker_get_message(
       }))
     });
 
-  Ok(JsonOp::Async(Box::new(op)))
+  Ok(JsonOp::Async(op.boxed()))
 }
 
 /// Post message to host as guest worker
@@ -94,9 +96,8 @@ fn op_worker_post_message(
   let d = Vec::from(data.unwrap().as_ref()).into_boxed_slice();
   let mut channels = state.worker_channels.lock().unwrap();
   let sender = &mut channels.sender;
-  sender
-    .send(d)
-    .wait()
+  futures::executor::block_on(sender
+    .send(d))
     .map_err(|e| DenoError::new(ErrorKind::Other, e.to_string()))?;
 
   Ok(JsonOp::Sync(json!({})))
@@ -196,7 +197,7 @@ fn op_host_get_worker_closed(
     futures::future::ok(json!({}))
   });
 
-  Ok(JsonOp::Async(Box::new(op)))
+  Ok(JsonOp::Async(op.boxed()))
 }
 
 #[derive(Deserialize)]

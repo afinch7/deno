@@ -8,8 +8,11 @@ use crate::resources::DenoAsyncRead;
 use crate::resources::DenoAsyncWrite;
 use crate::state::ThreadSafeState;
 use deno::*;
-use futures::Future;
-use futures::Poll;
+use futures::future::FutureExt;
+use std::future::Future;
+use std::task::Poll;
+use std::task::Context;
+use std::pin::Pin;
 
 pub fn init(i: &mut Isolate, s: &ThreadSafeState) {
   i.register_op("read", s.core_op(minimal_op(op_read)));
@@ -51,13 +54,13 @@ pub struct Read<T> {
 
 impl<T> Future for Read<T>
 where
-  T: AsMut<[u8]>,
+  T: AsMut<[u8]> + Unpin,
 {
-  type Item = usize;
-  type Error = ErrBox;
+  type Output = Result<i32, ErrBox>;
 
-  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-    if self.state == IoState::Done {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    let inner = self.get_mut();
+    if inner.state == IoState::Done {
       panic!("poll a Read after it's done");
     }
 
@@ -65,26 +68,28 @@ where
     let resource = table
       .get_mut::<CliResource>(self.rid)
       .ok_or_else(bad_resource)?;
-    let nread = try_ready!(resource.poll_read(&mut self.buf.as_mut()[..]));
-    self.state = IoState::Done;
-    Ok(nread.into())
+    let nread = match resource.poll_read(&mut inner.buf.as_mut()[..]) {
+      Poll::Ready(Ok(v)) => v,
+      Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+      Poll::Pending => return Poll::Pending,
+    };
+    inner.state = IoState::Done;
+    Poll::Ready(Ok(nread as i32))
   }
 }
 
-pub fn op_read(rid: i32, zero_copy: Option<PinnedBuf>) -> Box<MinimalOp> {
+pub fn op_read(rid: i32, zero_copy: Option<PinnedBuf>) -> Pin<Box<MinimalOp>> {
   debug!("read rid={}", rid);
   let zero_copy = match zero_copy {
     None => {
-      return Box::new(futures::future::err(deno_error::no_buffer_specified()))
+      return futures::future::err(deno_error::no_buffer_specified()).boxed()
     }
     Some(buf) => buf,
   };
 
-  let fut = read(rid as u32, zero_copy)
-    .map_err(ErrBox::from)
-    .and_then(move |nread| Ok(nread as i32));
+  let fut = read(rid as u32, zero_copy);
 
-  Box::new(fut)
+  fut.boxed()
 }
 
 /// A future used to write some data to a stream.
@@ -115,38 +120,40 @@ where
 /// that error type is `ErrBox` instead of `std::io::Error`.
 impl<T> Future for Write<T>
 where
-  T: AsRef<[u8]>,
+  T: AsRef<[u8]> + Unpin,
 {
-  type Item = usize;
-  type Error = ErrBox;
+  type Output = Result<i32, ErrBox>;
 
-  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-    if self.state == IoState::Done {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    let inner = self.get_mut();
+    if inner.state == IoState::Done {
       panic!("poll a Read after it's done");
     }
 
     let mut table = resources::lock_resource_table();
     let resource = table
-      .get_mut::<CliResource>(self.rid)
+      .get_mut::<CliResource>(inner.rid)
       .ok_or_else(bad_resource)?;
-    let nwritten = try_ready!(resource.poll_write(self.buf.as_ref()));
-    self.state = IoState::Done;
-    Ok(nwritten.into())
+    let nwritten = match resource.poll_write(inner.buf.as_ref()) {
+      Poll::Ready(Ok(v)) => v,
+      Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+      Poll::Pending => return Poll::Pending,
+    };
+    inner.state = IoState::Done;
+    Poll::Ready(Ok(nwritten as i32))
   }
 }
 
-pub fn op_write(rid: i32, zero_copy: Option<PinnedBuf>) -> Box<MinimalOp> {
+pub fn op_write(rid: i32, zero_copy: Option<PinnedBuf>) -> Pin<Box<MinimalOp>> {
   debug!("write rid={}", rid);
   let zero_copy = match zero_copy {
     None => {
-      return Box::new(futures::future::err(deno_error::no_buffer_specified()))
+      return futures::future::err(deno_error::no_buffer_specified()).boxed()
     }
     Some(buf) => buf,
   };
 
-  let fut = write(rid as u32, zero_copy)
-    .map_err(ErrBox::from)
-    .and_then(move |nwritten| Ok(nwritten as i32));
+  let fut = write(rid as u32, zero_copy);
 
-  Box::new(fut)
+  fut.boxed()
 }

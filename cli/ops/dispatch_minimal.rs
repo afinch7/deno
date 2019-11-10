@@ -12,10 +12,12 @@ use deno::CoreOp;
 use deno::ErrBox;
 use deno::Op;
 use deno::PinnedBuf;
-use futures::Future;
+use futures::future::FutureExt;
+use std::future::Future;
+use std::pin::Pin;
 
-pub type MinimalOp = dyn Future<Item = i32, Error = ErrBox> + Send;
-pub type Dispatcher = fn(i32, Option<PinnedBuf>) -> Box<MinimalOp>;
+pub type MinimalOp = dyn Future<Output = Result<i32, ErrBox>> + Send;
+pub type Dispatcher = fn(i32, Option<PinnedBuf>) -> Pin<Box<MinimalOp>>;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 // This corresponds to RecordMinimal on the TS side.
@@ -136,11 +138,11 @@ pub fn minimal_op(
     let min_op = d(rid, zero_copy);
 
     // Convert to CoreOp
-    let fut = Box::new(min_op.then(move |result| -> Result<Buf, ()> {
+    let fut = Box::new(min_op.then(move |result| {
       match result {
         Ok(r) => {
           record.result = r;
-          Ok(record.into())
+          futures::future::ok(record.into())
         }
         Err(err) => {
           let error_record = ErrorRecord {
@@ -149,7 +151,7 @@ pub fn minimal_op(
             error_code: err.kind() as i32,
             error_message: err.to_string().as_bytes().to_owned(),
           };
-          Ok(error_record.into())
+          futures::future::ok(error_record.into())
         }
       }
     }));
@@ -160,9 +162,9 @@ pub fn minimal_op(
       // tokio_util::block_on.
       // This block is only exercised for readSync and writeSync, which I think
       // works since they're simple polling futures.
-      Op::Sync(fut.wait().unwrap())
+      Op::Sync(futures::executor::block_on(fut).unwrap())
     } else {
-      Op::Async(fut)
+      Op::Async(fut.boxed())
     }
   }
 }

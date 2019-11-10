@@ -1,8 +1,9 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use super::dispatch_json::{Deserialize, JsonOp, Value};
 use crate::futures::future::join_all;
-use crate::futures::Future;
 use crate::msg;
+use crate::futures::future::FutureExt;
+use crate::futures::future::TryFutureExt;
 use crate::ops::json_op;
 use crate::state::ThreadSafeState;
 use deno::Loader;
@@ -120,7 +121,7 @@ fn op_fetch_source_files(
       futures::future::ok(res)
     });
 
-  Ok(JsonOp::Async(Box::new(future)))
+  Ok(JsonOp::Async(future.boxed()))
 }
 
 #[derive(Deserialize)]

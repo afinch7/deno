@@ -1,13 +1,15 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 use crate::tokio_util;
 use deno::*;
-use futures::Future;
-use futures::Poll;
+use futures::future::FutureExt;
 pub use serde_derive::Deserialize;
 use serde_json::json;
 pub use serde_json::Value;
+use std::future::Future;
+use std::task::Poll;
+use std::pin::Pin;
 
-pub type AsyncJsonOp = Box<dyn Future<Item = Value, Error = ErrBox> + Send>;
+pub type AsyncJsonOp = Pin<Box<dyn Future<Output = Result<Value, ErrBox>> + Send>>;
 
 pub enum JsonOp {
   Sync(Value),
@@ -70,17 +72,17 @@ where
       }
       Ok(JsonOp::Async(fut)) => {
         assert!(promise_id.is_some());
-        let fut2 = Box::new(fut.then(move |result| -> Result<Buf, ()> {
-          Ok(serialize_result(promise_id, result))
-        }));
-        CoreOp::Async(fut2)
+        let fut2 = fut.then(move |result| {
+          futures::future::ok(serialize_result(promise_id, result))
+        });
+        CoreOp::Async(fut2.boxed())
       }
       Err(sync_err) => {
         let buf = serialize_result(promise_id, Err(sync_err));
         if is_sync {
           CoreOp::Sync(buf)
         } else {
-          CoreOp::Async(Box::new(futures::future::ok(buf)))
+          CoreOp::Async(futures::future::ok(buf).boxed())
         }
       }
     }
@@ -89,15 +91,15 @@ where
 
 // This is just type conversion. Implement From trait?
 // See https://github.com/tokio-rs/tokio/blob/ffd73a64e7ec497622b7f939e38017afe7124dc4/tokio-fs/src/lib.rs#L76-L85
-fn convert_blocking_json<F>(f: F) -> Poll<Value, ErrBox>
+fn convert_blocking_json<F>(f: F) -> Poll<Result<Value, ErrBox>>
 where
   F: FnOnce() -> Result<Value, ErrBox>,
 {
-  use futures::Async::*;
+  use tokio::prelude::Async::*;
   match tokio_threadpool::blocking(f) {
-    Ok(Ready(Ok(v))) => Ok(Ready(v)),
-    Ok(Ready(Err(err))) => Err(err),
-    Ok(NotReady) => Ok(NotReady),
+    Ok(Ready(Ok(v))) => Poll::Ready(Ok(v)),
+    Ok(Ready(Err(err))) => Poll::Ready(Err(err)),
+    Ok(NotReady) => Poll::Pending,
     Err(err) => panic!("blocking error {}", err),
   }
 }
@@ -109,9 +111,8 @@ where
   if is_sync {
     Ok(JsonOp::Sync(f()?))
   } else {
-    Ok(JsonOp::Async(Box::new(futures::sync::oneshot::spawn(
-      tokio_util::poll_fn(move || convert_blocking_json(f)),
-      &tokio_executor::DefaultExecutor::current(),
-    ))))
+    Ok(JsonOp::Async(async move {
+      tokio_util::poll_fn(move || convert_blocking_json(f)).await
+    }.boxed()))
   }
 }

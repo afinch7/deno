@@ -9,11 +9,15 @@ use crate::resources;
 use crate::resources::CliResource;
 use crate::state::ThreadSafeState;
 use deno::*;
-use futures::Future;
-use futures::Poll;
+use futures::future::FutureExt;
+use futures::future::TryFutureExt;
 use std;
 use std::convert::From;
+use std::future::Future;
 use std::io::SeekFrom;
+use std::task::Context;
+use std::task::Poll;
+use std::pin::Pin;
 use tokio;
 
 pub fn init(i: &mut Isolate, s: &ThreadSafeState) {
@@ -89,7 +93,7 @@ fn op_open(
   }
 
   let is_sync = args.promise_id.is_none();
-  let op = open_options.open(filename).map_err(ErrBox::from).and_then(
+  let op = futures::compat::Compat01As03::new(tokio::prelude::Future::map_err(open_options.open(filename), ErrBox::from)).and_then(
     move |fs_file| {
       let rid = resources::add_fs_file(fs_file);
       futures::future::ok(json!(rid))
@@ -97,10 +101,10 @@ fn op_open(
   );
 
   if is_sync {
-    let buf = op.wait()?;
+    let buf = futures::executor::block_on(op)?;
     Ok(JsonOp::Sync(buf))
   } else {
-    Ok(JsonOp::Async(Box::new(op)))
+    Ok(JsonOp::Async(op.boxed()))
   }
 }
 
@@ -128,10 +132,9 @@ pub struct SeekFuture {
 }
 
 impl Future for SeekFuture {
-  type Item = u64;
-  type Error = ErrBox;
+  type Output = Result<u64, ErrBox>;
 
-  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     let mut table = resources::lock_resource_table();
     let resource = table
       .get_mut::<CliResource>(self.rid)
@@ -139,10 +142,16 @@ impl Future for SeekFuture {
 
     let tokio_file = match resource {
       CliResource::FsFile(ref mut file) => file,
-      _ => return Err(bad_resource()),
+      _ => return Poll::Ready(Err(bad_resource())),
     };
 
-    tokio_file.poll_seek(self.seek_from).map_err(ErrBox::from)
+    use tokio::prelude::Async::*;
+
+    match tokio_file.poll_seek(self.seek_from).map_err(ErrBox::from) {
+      Ok(Ready(v)) => Poll::Ready(Ok(v)),
+      Err(err) => Poll::Ready(Err(err)),
+      Ok(NotReady) => Poll::Pending,
+    }
   }
 }
 
@@ -181,9 +190,9 @@ fn op_seek(
 
   let op = fut.and_then(move |_| futures::future::ok(json!({})));
   if args.promise_id.is_none() {
-    let buf = op.wait()?;
+    let buf = futures::executor::block_on(op)?;
     Ok(JsonOp::Sync(buf))
   } else {
-    Ok(JsonOp::Async(Box::new(op)))
+    Ok(JsonOp::Async(op.boxed()))
   }
 }

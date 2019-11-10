@@ -17,6 +17,7 @@ use crate::module_specifier::ModuleSpecifier;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use futures::stream::Stream;
+use futures::future::FutureExt;
 use std::future::Future;
 use std::task::Poll;
 use std::task::Context;
@@ -28,7 +29,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 pub type SourceCodeInfoFuture =
-  dyn Future<Output = Result<SourceCodeInfo, ErrBox>> + Unpin + Send;
+  dyn Future<Output = Result<SourceCodeInfo, ErrBox>> + Send;
 
 pub trait Loader: Send + Sync {
   /// Returns an absolute URL.
@@ -47,7 +48,7 @@ pub trait Loader: Send + Sync {
   fn load(
     &self,
     module_specifier: &ModuleSpecifier,
-  ) -> Box<SourceCodeInfoFuture>;
+  ) -> Pin<Box<SourceCodeInfoFuture>>;
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -73,7 +74,7 @@ pub struct RecursiveLoad<L: Loader + Unpin> {
   state: State,
   loader: L,
   modules: Arc<Mutex<Modules>>,
-  pending: FuturesUnordered<Box<SourceCodeInfoFuture>>,
+  pending: FuturesUnordered<Pin<Box<SourceCodeInfoFuture>>>,
   is_pending: HashSet<ModuleSpecifier>,
 }
 
@@ -153,7 +154,7 @@ impl<L: Loader + Unpin> RecursiveLoad<L> {
     // integrated into one thing.
     self
       .pending
-      .push(Box::new(self.loader.load(&module_specifier)));
+      .push(self.loader.load(&module_specifier).boxed());
     self.state = State::LoadingRoot;
 
     Ok(())
@@ -182,7 +183,7 @@ impl<L: Loader + Unpin> RecursiveLoad<L> {
     {
       self
         .pending
-        .push(Box::new(self.loader.load(&module_specifier)));
+        .push(self.loader.load(&module_specifier).boxed());
       self.is_pending.insert(module_specifier);
     }
 
@@ -735,11 +736,11 @@ mod tests {
     fn load(
       &self,
       module_specifier: &ModuleSpecifier,
-    ) -> Box<SourceCodeInfoFuture> {
+    ) -> Pin<Box<SourceCodeInfoFuture>> {
       let mut loads = self.loads.lock().unwrap();
       loads.push(module_specifier.to_string());
       let url = module_specifier.to_string();
-      Box::new(DelayedSourceCodeFuture { url, counter: 0 })
+      DelayedSourceCodeFuture { url, counter: 0 }.boxed()
     }
   }
 
