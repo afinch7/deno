@@ -273,7 +273,7 @@ impl TsCompiler {
     let worker = TsCompiler::setup_worker(global_state.clone());
     let worker_ = worker.clone();
     let first_msg_fut = async move {
-      worker.post_message(req_msg).unwrap();
+      worker.post_message(req_msg).await.unwrap();
       let result = worker.await;
       if let Err(err) = result {
         // TODO(ry) Need to forward the error instead of exiting.
@@ -383,7 +383,7 @@ impl TsCompiler {
     let global_state_ = global_state.clone();
 
     let first_msg_fut = async move {
-      worker.post_message(req_msg).unwrap();
+      worker.post_message(req_msg).await.unwrap();
       let result = worker.await;
       if let Err(err) = result {
         // TODO(ry) Need to forward the error instead of exiting.

@@ -10,6 +10,7 @@ use deno::*;
 use futures;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
+use futures::task::SpawnExt;
 use std;
 use std::convert::From;
 use std::future::Future;
@@ -18,8 +19,6 @@ use std::process::Command;
 use std::process::ExitStatus;
 use std::task::Context;
 use std::task::Poll;
-use tokio::prelude::Async;
-use tokio::prelude::Future as OldFuture;
 use tokio_process::CommandExt;
 
 #[cfg(unix)]
@@ -58,7 +57,7 @@ struct RunArgs {
 }
 
 struct ChildResource {
-  child: tokio_process::Child,
+  child: futures::compat::Compat01As03<tokio_process::Child>,
 }
 
 impl Resource for ChildResource {}
@@ -141,7 +140,9 @@ fn op_run(
     None
   };
 
-  let child_resource = ChildResource { child };
+  let child_resource = ChildResource {
+    child: futures::compat::Compat01As03::new(child),
+  };
   let mut table = resources::lock_resource_table();
   let child_rid = table.add("child", Box::new(child_resource));
 
@@ -161,17 +162,13 @@ pub struct ChildStatus {
 impl Future for ChildStatus {
   type Output = Result<ExitStatus, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     let mut table = resources::lock_resource_table();
     let child_resource = table
       .get_mut::<ChildResource>(self.rid)
       .ok_or_else(bad_resource)?;
     let child = &mut child_resource.child;
-    match child.poll() {
-      Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
-      Ok(Async::NotReady) => Poll::Pending,
-      Err(e) => Poll::Ready(Err(ErrBox::from(e))),
-    }
+    child.map_err(ErrBox::from).poll_unpin(cx)
   }
 }
 
@@ -213,7 +210,10 @@ fn op_run_status(
     }))
   });
 
-  Ok(JsonOp::Async(future.boxed()))
+  let pool = futures::executor::ThreadPool::new().unwrap();
+  let handle = pool.spawn_with_handle(future).unwrap();
+
+  Ok(JsonOp::Async(handle.boxed()))
 }
 
 #[derive(Deserialize)]

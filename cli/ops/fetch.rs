@@ -10,8 +10,6 @@ use futures::future::TryFutureExt;
 use http::header::HeaderName;
 use http::header::HeaderValue;
 use http::Method;
-use hyper;
-use hyper::rt::Future;
 use std;
 use std::convert::From;
 
@@ -56,27 +54,27 @@ pub fn op_fetch(
     request = request.header(name, v);
   }
   debug!("Before fetch {}", url);
-  let future =
-    futures::compat::Compat01As03::new(request.send().map_err(ErrBox::from))
-      .and_then(move |res| {
-        let status = res.status();
-        let mut res_headers = Vec::new();
-        for (key, val) in res.headers().iter() {
-          res_headers.push((key.to_string(), val.to_str().unwrap().to_owned()));
-        }
+  let future = futures::compat::Compat01As03::new(request.send())
+    .map_err(ErrBox::from)
+    .and_then(move |res| {
+      let status = res.status();
+      let mut res_headers = Vec::new();
+      for (key, val) in res.headers().iter() {
+        res_headers.push((key.to_string(), val.to_str().unwrap().to_owned()));
+      }
 
-        let body = res.into_body();
-        let rid = resources::add_reqwest_body(body);
+      let body = res.into_body();
+      let rid = resources::add_reqwest_body(body);
 
-        let json_res = json!({
-          "bodyRid": rid,
-          "status": status.as_u16(),
-          "statusText": status.canonical_reason().unwrap_or(""),
-          "headers": res_headers
-        });
-
-        futures::future::ok(json_res)
+      let json_res = json!({
+        "bodyRid": rid,
+        "status": status.as_u16(),
+        "statusText": status.canonical_reason().unwrap_or(""),
+        "headers": res_headers
       });
+
+      futures::future::ok(json_res)
+    });
 
   Ok(JsonOp::Async(future.boxed()))
 }

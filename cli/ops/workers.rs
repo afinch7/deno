@@ -271,8 +271,7 @@ fn op_host_post_message(
   let mut table = state.workers.lock().unwrap();
   // TODO: don't return bad resource anymore
   let worker = table.get_mut(&id).ok_or_else(bad_resource)?;
-  worker
-    .post_message(msg)
+  tokio_util::block_on(worker.post_message(msg).boxed())
     .map_err(|e| DenoError::new(ErrorKind::Other, e.to_string()))?;
   Ok(JsonOp::Sync(json!({})))
 }

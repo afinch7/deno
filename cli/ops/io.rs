@@ -58,7 +58,7 @@ where
 {
   type Output = Result<i32, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     let inner = self.get_mut();
     if inner.state == IoState::Done {
       panic!("poll a Read after it's done");
@@ -68,7 +68,11 @@ where
     let resource = table
       .get_mut::<CliResource>(inner.rid)
       .ok_or_else(bad_resource)?;
-    let nread = match resource.poll_read(&mut inner.buf.as_mut()[..]) {
+    let nread = match DenoAsyncRead::poll_read(
+      Pin::new(resource),
+      cx,
+      &mut inner.buf.as_mut()[..],
+    ) {
       Poll::Ready(Ok(v)) => v,
       Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
       Poll::Pending => return Poll::Pending,
@@ -124,7 +128,7 @@ where
 {
   type Output = Result<i32, ErrBox>;
 
-  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     let inner = self.get_mut();
     if inner.state == IoState::Done {
       panic!("poll a Read after it's done");
@@ -134,7 +138,11 @@ where
     let resource = table
       .get_mut::<CliResource>(inner.rid)
       .ok_or_else(bad_resource)?;
-    let nwritten = match resource.poll_write(inner.buf.as_ref()) {
+    let nwritten = match DenoAsyncWrite::poll_write(
+      Pin::new(resource),
+      cx,
+      inner.buf.as_ref(),
+    ) {
       Poll::Ready(Ok(v)) => v,
       Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
       Poll::Pending => return Poll::Pending,

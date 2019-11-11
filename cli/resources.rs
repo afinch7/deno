@@ -15,6 +15,9 @@ pub use deno::Resource;
 pub use deno::ResourceId;
 use deno::ResourceTable;
 
+use futures::compat::AsyncRead01CompatExt;
+use futures::compat::AsyncWrite01CompatExt;
+use futures::io::{AsyncRead, AsyncWrite};
 use reqwest::r#async::Decoder as ReqwestDecoder;
 use std;
 use std::future::Future;
@@ -24,7 +27,6 @@ use std::sync::MutexGuard;
 use std::task::Context;
 use std::task::Poll;
 use tokio;
-use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::prelude::Async;
 use tokio_process;
@@ -72,7 +74,7 @@ pub enum CliResource {
   TcpStream(tokio::net::TcpStream),
   ServerTlsStream(Box<ServerTlsStream<TcpStream>>),
   ClientTlsStream(Box<ClientTlsStream<TcpStream>>),
-  HttpBody(HttpBody),
+  HttpBody(Box<HttpBody>),
   ChildStdin(tokio_process::ChildStdin),
   ChildStdout(tokio_process::ChildStdout),
   ChildStderr(tokio_process::ChildStderr),
@@ -87,31 +89,44 @@ pub fn lock_resource_table<'a>() -> MutexGuard<'a, ResourceTable> {
 /// `DenoAsyncRead` is the same as the `tokio_io::AsyncRead` trait
 /// but uses an `ErrBox` error instead of `std::io:Error`
 pub trait DenoAsyncRead {
-  fn poll_read(&mut self, buf: &mut [u8]) -> Poll<Result<usize, ErrBox>>;
+  fn poll_read(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+    buf: &mut [u8],
+  ) -> Poll<Result<usize, ErrBox>>;
 }
 
 impl DenoAsyncRead for CliResource {
-  fn poll_read(&mut self, buf: &mut [u8]) -> Poll<Result<usize, ErrBox>> {
-    let r = match self {
-      CliResource::FsFile(ref mut f) => f.poll_read(buf),
-      CliResource::Stdin(ref mut f) => f.poll_read(buf),
-      CliResource::TcpStream(ref mut f) => f.poll_read(buf),
-      CliResource::ClientTlsStream(ref mut f) => f.poll_read(buf),
-      CliResource::ServerTlsStream(ref mut f) => f.poll_read(buf),
-      CliResource::HttpBody(ref mut f) => f.poll_read(buf),
-      CliResource::ChildStdout(ref mut f) => f.poll_read(buf),
-      CliResource::ChildStderr(ref mut f) => f.poll_read(buf),
+  fn poll_read(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+    buf: &mut [u8],
+  ) -> Poll<Result<usize, ErrBox>> {
+    let inner = self.get_mut();
+    let mut f: Box<dyn AsyncRead + Unpin> = match inner {
+      CliResource::FsFile(f) => Box::new(AsyncRead01CompatExt::compat(f)),
+      CliResource::Stdin(f) => Box::new(AsyncRead01CompatExt::compat(f)),
+      CliResource::TcpStream(f) => Box::new(AsyncRead01CompatExt::compat(f)),
+      CliResource::ClientTlsStream(f) => {
+        Box::new(AsyncRead01CompatExt::compat(f))
+      }
+      CliResource::ServerTlsStream(f) => {
+        Box::new(AsyncRead01CompatExt::compat(f))
+      }
+      CliResource::HttpBody(f) => Box::new(f),
+      CliResource::ChildStdout(f) => Box::new(AsyncRead01CompatExt::compat(f)),
+      CliResource::ChildStderr(f) => Box::new(AsyncRead01CompatExt::compat(f)),
       _ => {
         return Poll::Ready(Err(bad_resource()));
       }
     };
 
-    let r = r.map_err(ErrBox::from);
+    let r = AsyncRead::poll_read(Pin::new(&mut f), cx, buf);
 
     match r {
-      Err(err) => Poll::Ready(Err(err)),
-      Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
-      Ok(Async::NotReady) => Poll::Pending,
+      Poll::Ready(Err(e)) => Poll::Ready(Err(ErrBox::from(e))),
+      Poll::Ready(Ok(v)) => Poll::Ready(Ok(v)),
+      Poll::Pending => Poll::Pending,
     }
   }
 }
@@ -119,36 +134,56 @@ impl DenoAsyncRead for CliResource {
 /// `DenoAsyncWrite` is the same as the `tokio_io::AsyncWrite` trait
 /// but uses an `ErrBox` error instead of `std::io:Error`
 pub trait DenoAsyncWrite {
-  fn poll_write(&mut self, buf: &[u8]) -> Poll<Result<usize, ErrBox>>;
+  //TODO(afinch7) update to behave like new AsyncWrite
+  fn poll_write(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+    buf: &[u8],
+  ) -> Poll<Result<usize, ErrBox>>;
 
-  fn shutdown(&mut self) -> Poll<Result<(), ErrBox>>;
+  fn poll_close(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+  ) -> Poll<Result<(), ErrBox>>;
 }
 
 impl DenoAsyncWrite for CliResource {
-  fn poll_write(&mut self, buf: &[u8]) -> Poll<Result<usize, ErrBox>> {
-    let r = match self {
-      CliResource::FsFile(ref mut f) => f.poll_write(buf),
-      CliResource::Stdout(ref mut f) => f.poll_write(buf),
-      CliResource::Stderr(ref mut f) => f.poll_write(buf),
-      CliResource::TcpStream(ref mut f) => f.poll_write(buf),
-      CliResource::ClientTlsStream(ref mut f) => f.poll_write(buf),
-      CliResource::ServerTlsStream(ref mut f) => f.poll_write(buf),
-      CliResource::ChildStdin(ref mut f) => f.poll_write(buf),
+  fn poll_write(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+    buf: &[u8],
+  ) -> Poll<Result<usize, ErrBox>> {
+    let inner = self.get_mut();
+    let mut f: Box<dyn AsyncWrite + Unpin> = match inner {
+      CliResource::FsFile(f) => Box::new(AsyncWrite01CompatExt::compat(f)),
+      CliResource::Stdout(f) => Box::new(AsyncWrite01CompatExt::compat(f)),
+      CliResource::Stderr(f) => Box::new(AsyncWrite01CompatExt::compat(f)),
+      CliResource::TcpStream(f) => Box::new(AsyncWrite01CompatExt::compat(f)),
+      CliResource::ClientTlsStream(f) => {
+        Box::new(AsyncWrite01CompatExt::compat(f))
+      }
+      CliResource::ServerTlsStream(f) => {
+        Box::new(AsyncWrite01CompatExt::compat(f))
+      }
+      CliResource::ChildStdin(f) => Box::new(AsyncWrite01CompatExt::compat(f)),
       _ => {
         return Poll::Ready(Err(bad_resource()));
       }
     };
 
-    let r = r.map_err(ErrBox::from);
+    let r = AsyncWrite::poll_write(Pin::new(&mut f), cx, buf);
 
     match r {
-      Err(err) => Poll::Ready(Err(err)),
-      Ok(Async::Ready(v)) => Poll::Ready(Ok(v)),
-      Ok(Async::NotReady) => Poll::Pending,
+      Poll::Ready(Err(e)) => Poll::Ready(Err(ErrBox::from(e))),
+      Poll::Ready(Ok(v)) => Poll::Ready(Ok(v)),
+      Poll::Pending => Poll::Pending,
     }
   }
 
-  fn shutdown(&mut self) -> Poll<Result<(), ErrBox>> {
+  fn poll_close(
+    self: Pin<&mut Self>,
+    _cx: &mut Context,
+  ) -> Poll<Result<(), ErrBox>> {
     unimplemented!()
   }
 }
@@ -182,7 +217,7 @@ pub fn add_server_tls_stream(stream: ServerTlsStream<TcpStream>) -> ResourceId {
 pub fn add_reqwest_body(body: ReqwestDecoder) -> ResourceId {
   let body = HttpBody::from(body);
   let mut table = lock_resource_table();
-  table.add("httpBody", Box::new(CliResource::HttpBody(body)))
+  table.add("httpBody", Box::new(CliResource::HttpBody(Box::new(body))))
 }
 
 pub fn add_child_stdin(stdin: tokio_process::ChildStdin) -> ResourceId {
