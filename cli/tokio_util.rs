@@ -4,10 +4,6 @@ use futures;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use std::future::Future;
-use std::ops::FnOnce;
-use std::pin::Pin;
-use std::task::Context;
-use std::task::Poll;
 use tokio;
 use tokio::runtime;
 

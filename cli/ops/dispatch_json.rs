@@ -1,5 +1,4 @@
 // Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
-use crate::tokio_util;
 use deno::*;
 use futures::future::FutureExt;
 use futures::task::SpawnExt;
@@ -8,7 +7,6 @@ use serde_json::json;
 pub use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
-use std::task::Poll;
 
 pub type AsyncJsonOp =
   Pin<Box<dyn Future<Output = Result<Value, ErrBox>> + Send>>;
