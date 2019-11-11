@@ -384,10 +384,9 @@ fn run_script(flags: DenoFlags, argv: Vec<String>) {
       if state.flags.lock_write {
         if let Some(ref lockfile) = state.lockfile {
           let g = lockfile.lock().unwrap();
-          match g.write() {
-            Err(e) => return futures::future::err(ErrBox::from(e)),
-            _ => {}
-          };
+          if let Err(e) = g.write() {
+            return futures::future::err(ErrBox::from(e));
+          }
         } else {
           eprintln!("--lock flag must be specified when using --lock-write");
           std::process::exit(11);

@@ -183,7 +183,7 @@ impl Future for GetWorkerClosedFuture {
     let inner = self.get_mut();
     let mut workers_table = inner.state.workers.lock().unwrap();
     let maybe_worker = workers_table.get_mut(&inner.rid);
-    if let None = maybe_worker {
+    if maybe_worker.is_none() {
       return Poll::Ready(Ok(()));
     }
     match maybe_worker.unwrap().poll_unpin(cx) {

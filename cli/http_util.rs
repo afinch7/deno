@@ -124,7 +124,7 @@ pub fn fetch_string_once(
           .map(|content_type| content_type.to_str().unwrap().to_owned());
 
         let body = futures::compat::Compat01As03::new(response.text())
-          .map_ok(|v| Some(v))
+          .map_ok(Some)
           .map_err(ErrBox::from);
 
         futures::future::try_join3(
