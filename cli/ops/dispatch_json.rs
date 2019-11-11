@@ -2,6 +2,7 @@
 use crate::tokio_util;
 use deno::*;
 use futures::future::FutureExt;
+use futures::task::SpawnExt;
 pub use serde_derive::Deserialize;
 use serde_json::json;
 pub use serde_json::Value;
@@ -90,21 +91,6 @@ where
   }
 }
 
-// This is just type conversion. Implement From trait?
-// See https://github.com/tokio-rs/tokio/blob/ffd73a64e7ec497622b7f939e38017afe7124dc4/tokio-fs/src/lib.rs#L76-L85
-fn convert_blocking_json<F>(f: F) -> Poll<Result<Value, ErrBox>>
-where
-  F: FnOnce() -> Result<Value, ErrBox>,
-{
-  use tokio::prelude::Async::*;
-  match tokio_threadpool::blocking(f) {
-    Ok(Ready(Ok(v))) => Poll::Ready(Ok(v)),
-    Ok(Ready(Err(err))) => Poll::Ready(Err(err)),
-    Ok(NotReady) => Poll::Pending,
-    Err(err) => panic!("blocking error {}", err),
-  }
-}
-
 pub fn blocking_json<F>(is_sync: bool, f: F) -> Result<JsonOp, ErrBox>
 where
   F: 'static + Send + FnOnce() -> Result<Value, ErrBox> + Unpin,
@@ -112,8 +98,11 @@ where
   if is_sync {
     Ok(JsonOp::Sync(f()?))
   } else {
-    Ok(JsonOp::Async(async move {
-      tokio_util::poll_fn(move || convert_blocking_json(f)).await
-    }.boxed()))
+    //TODO(afinch7) replace this with something more efficent.
+    let pool = futures::executor::ThreadPool::new().unwrap();
+    let handle = pool
+      .spawn_with_handle(futures::future::lazy(move |_cx| f()))
+      .unwrap();
+    Ok(JsonOp::Async(handle.boxed()))
   }
 }

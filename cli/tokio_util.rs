@@ -76,33 +76,6 @@ where
   tokio_executor::with_default(&mut executor, &mut enter, move |_enter| f());
 }
 
-/// `futures::future::poll_fn` only support `F: FnMut()->Poll<T, E>`
-/// However, we require that `F: FnOnce()->Poll<T, E>`.
-/// Therefore, we created our version of `poll_fn`.
-pub fn poll_fn<O, F>(f: F) -> PollFn<F>
-where
-  F: FnOnce() -> Poll<O>,
-{
-  PollFn { inner: Some(f) }
-}
-
-pub struct PollFn<F> {
-  inner: Option<F>,
-}
-
-impl<O, F> Future for PollFn<F>
-where
-  F: FnOnce() -> Poll<O> + Unpin,
-{
-  type Output = O;
-
-  fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
-    let inner = self.get_mut();
-    let f = inner.inner.take().expect("Inner fn has been taken.");
-    f()
-  }
-}
-
 pub fn panic_on_error<I, E, F>(f: F) -> impl Future<Output = Result<I, ()>>
 where
   F: Future<Output = Result<I, E>>,
