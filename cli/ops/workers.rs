@@ -7,6 +7,7 @@ use crate::deno_error::ErrorKind;
 use crate::ops::json_op;
 use crate::startup_data;
 use crate::state::ThreadSafeState;
+use crate::tokio_util;
 use crate::worker::Worker;
 use deno::*;
 use futures;
@@ -167,7 +168,7 @@ fn op_create_worker(
     .execute_mod_async(&module_specifier, None, false)
     .and_then(move |()| futures::future::ok(exec_cb(worker)));
 
-  let result = futures::executor::block_on(op)?;
+  let result = tokio_util::block_on(op.boxed())?;
   Ok(JsonOp::Sync(result))
 }
 
