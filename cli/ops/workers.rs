@@ -171,6 +171,29 @@ fn op_create_worker(
   Ok(JsonOp::Sync(result))
 }
 
+struct GetWorkerClosedFuture {
+  state: ThreadSafeState,
+  rid: ResourceId,
+}
+
+impl Future for GetWorkerClosedFuture {
+  type Output = Result<(), ErrBox>;
+
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    let inner = self.get_mut();
+    let mut workers_table = inner.state.workers.lock().unwrap();
+    let maybe_worker = workers_table.get_mut(&inner.rid);
+    if let None = maybe_worker {
+      return Poll::Ready(Ok(()));
+    }
+    match maybe_worker.unwrap().poll_unpin(cx) {
+      Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+      Poll::Ready(Ok(_)) => Poll::Ready(Ok(())),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+}
+
 #[derive(Deserialize)]
 struct HostGetWorkerClosedArgs {
   id: i32,
@@ -185,12 +208,12 @@ fn op_host_get_worker_closed(
   let args: HostGetWorkerClosedArgs = serde_json::from_value(args)?;
   let id = args.id as u32;
   let state_ = state.clone();
-  let workers_table = state.workers.lock().unwrap();
-  // TODO: handle bad worker id gracefully
-  let worker = workers_table.get(&id).unwrap();
-  let shared_worker_future = worker.clone().shared();
 
-  let op = shared_worker_future.then(move |_result| {
+  let future = GetWorkerClosedFuture {
+    state: state.clone(),
+    rid: id,
+  };
+  let op = future.then(move |_result| {
     let mut workers_table = state_.workers.lock().unwrap();
     workers_table.remove(&id);
     futures::future::ok(json!({}))

@@ -147,7 +147,9 @@ impl Worker {
   pub fn post_message(self: &Self, buf: Buf) -> Result<(), ErrBox> {
     let mut channels = self.external_channels.lock().unwrap();
     let sender = &mut channels.sender;
-    futures::executor::block_on(sender.send(buf)).map(|_| ()).map_err(ErrBox::from)
+    futures::executor::block_on(sender.send(buf))
+      .map(|_| ())
+      .map_err(ErrBox::from)
   }
 
   /// Get message from worker as a host.
