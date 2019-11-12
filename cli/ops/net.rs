@@ -246,7 +246,7 @@ struct ListenArgs {
 #[allow(dead_code)]
 struct TcpListenerResource {
   listener: tokio::net::TcpListener,
-  waker: futures::task::AtomicWaker,
+  waker: Option<futures::task::AtomicWaker>,
   local_addr: SocketAddr,
 }
 
@@ -268,8 +268,7 @@ impl TcpListenerResource {
     // This might be changed in the future with multiple workers.
     // Caveat: TcpListener by itself also only tracks an accept task at a time.
     // See https://github.com/tokio-rs/tokio/issues/846#issuecomment-454208883
-    let waker = self.waker.take();
-    if waker.is_some() {
+    if self.waker.is_some() {
       let e = std::io::Error::new(
         std::io::ErrorKind::Other,
         "Another accept task is ongoing",
@@ -277,13 +276,15 @@ impl TcpListenerResource {
       return Err(ErrBox::from(e));
     }
 
-    self.waker.register(cx.waker());
+    let waker = futures::task::AtomicWaker::new();
+    waker.register(cx.waker());
+    self.waker.replace(waker);
     Ok(())
   }
 
   /// Notifies a task when listener is closed so accept future can resolve.
   pub fn wake_task(&mut self) {
-    if let Some(waker) = self.waker.take() {
+    if let Some(waker) = self.waker.as_ref() {
       waker.wake();
     }
   }
@@ -291,8 +292,8 @@ impl TcpListenerResource {
   /// Stop tracking a task.
   /// Happens when the task is done and thus no further tracking is needed.
   pub fn untrack_task(&mut self) {
-    if self.waker.take().is_some() {
-      self.waker = futures::task::AtomicWaker::new();
+    if self.waker.is_some() {
+      self.waker.take();
     }
   }
 }
@@ -314,7 +315,7 @@ fn op_listen(
   let local_addr_str = local_addr.to_string();
   let listener_resource = TcpListenerResource {
     listener,
-    waker: futures::task::AtomicWaker::new(),
+    waker: None,
     local_addr,
   };
   let mut table = resources::lock_resource_table();

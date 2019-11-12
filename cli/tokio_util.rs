@@ -4,9 +4,7 @@ use futures;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use std::future::Future;
-use std::ops::FnOnce;
 use tokio;
-use tokio::prelude::Future as OldFuture;
 use tokio::runtime;
 
 pub fn create_threadpool_runtime(
@@ -72,33 +70,6 @@ where
   let mut executor = rt.executor();
   let mut enter = tokio_executor::enter().expect("Multiple executors at once");
   tokio_executor::with_default(&mut executor, &mut enter, move |_enter| f());
-}
-
-/// `futures::future::poll_fn` only support `F: FnMut()->Poll<T, E>`
-/// However, we require that `F: FnOnce()->Poll<T, E>`.
-/// Therefore, we created our version of `poll_fn`.
-pub fn poll_fn<T, E, F>(f: F) -> PollFn<F>
-where
-  F: FnOnce() -> tokio::prelude::Poll<T, E>,
-{
-  PollFn { inner: Some(f) }
-}
-
-pub struct PollFn<F> {
-  inner: Option<F>,
-}
-
-impl<T, E, F> OldFuture for PollFn<F>
-where
-  F: FnOnce() -> tokio::prelude::Poll<T, E>,
-{
-  type Item = T;
-  type Error = E;
-
-  fn poll(&mut self) -> tokio::prelude::Poll<T, E> {
-    let f = self.inner.take().expect("Inner fn has been taken.");
-    f()
-  }
 }
 
 pub fn panic_on_error<I, E, F>(f: F) -> impl Future<Output = Result<I, ()>>
