@@ -7,6 +7,7 @@ use crate::state::ThreadSafeState;
 use deno::*;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
+use futures::task::SpawnExt;
 use http::header::HeaderName;
 use http::header::HeaderValue;
 use http::Method;
@@ -57,6 +58,7 @@ pub fn op_fetch(
   let future = futures::compat::Compat01As03::new(request.send())
     .map_err(ErrBox::from)
     .and_then(move |res| {
+      debug!("Fetch response {}", url);
       let status = res.status();
       let mut res_headers = Vec::new();
       for (key, val) in res.headers().iter() {
@@ -76,5 +78,8 @@ pub fn op_fetch(
       futures::future::ok(json_res)
     });
 
-  Ok(JsonOp::Async(future.boxed()))
+  let pool = futures::executor::ThreadPool::new().unwrap();
+  let handle = pool.spawn_with_handle(future).unwrap();
+
+  Ok(JsonOp::Async(handle.boxed()))
 }

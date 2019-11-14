@@ -10,6 +10,8 @@ use crate::state::ThreadSafeState;
 use deno::*;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use std;
 use std::convert::From;
 use std::future::Future;
@@ -19,9 +21,9 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 use tokio;
+use tokio::net::tcp::Incoming;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
-use tokio::prelude::Async;
 
 pub fn init(i: &mut Isolate, s: &ThreadSafeState) {
   i.register_op("accept", s.core_op(json_op(s.stateful_op(op_accept))));
@@ -72,44 +74,50 @@ impl Future for Accept {
         ErrBox::from(e)
       })?;
 
-    let listener = &mut listener_resource.listener;
+    let mut listener =
+      futures::compat::Compat01As03::new(&mut listener_resource.listener)
+        .map_err(ErrBox::from);
 
     if inner.state == AcceptState::Eager {
       // Similar to try_ready!, but also track/untrack accept task
       // in TcpListener resource.
       // In this way, when the listener is closed, the task can be
       // notified to error out (instead of stuck forever).
-      match listener.poll_accept().map_err(ErrBox::from) {
-        Ok(Async::Ready((stream, addr))) => {
+      match listener.poll_next_unpin(cx) {
+        Poll::Ready(Some(Ok(stream))) => {
           inner.state = AcceptState::Done;
+          let addr = stream.peer_addr().unwrap();
           return Poll::Ready(Ok((stream, addr)));
         }
-        Ok(Async::NotReady) => {
+        Poll::Pending => {
           inner.state = AcceptState::Pending;
           return Poll::Pending;
         }
-        Err(e) => {
+        Poll::Ready(Some(Err(e))) => {
           inner.state = AcceptState::Done;
           return Poll::Ready(Err(e));
         }
+        _ => unreachable!(),
       }
     }
 
-    match listener.poll_accept().map_err(ErrBox::from) {
-      Ok(Async::Ready((stream, addr))) => {
+    match listener.poll_next_unpin(cx) {
+      Poll::Ready(Some(Ok(stream))) => {
         listener_resource.untrack_task();
         inner.state = AcceptState::Done;
+        let addr = stream.peer_addr().unwrap();
         Poll::Ready(Ok((stream, addr)))
       }
-      Ok(Async::NotReady) => {
+      Poll::Pending => {
         listener_resource.track_task(cx)?;
         Poll::Pending
       }
-      Err(e) => {
+      Poll::Ready(Some(Err(e))) => {
         listener_resource.untrack_task();
         inner.state = AcceptState::Done;
         Poll::Ready(Err(e))
       }
+      _ => unreachable!(),
     }
   }
 }
@@ -245,7 +253,7 @@ struct ListenArgs {
 
 #[allow(dead_code)]
 struct TcpListenerResource {
-  listener: tokio::net::TcpListener,
+  listener: Incoming,
   waker: Option<futures::task::AtomicWaker>,
   local_addr: SocketAddr,
 }
@@ -314,12 +322,13 @@ fn op_listen(
   let local_addr = listener.local_addr()?;
   let local_addr_str = local_addr.to_string();
   let listener_resource = TcpListenerResource {
-    listener,
+    listener: listener.incoming(),
     waker: None,
     local_addr,
   };
   let mut table = resources::lock_resource_table();
   let rid = table.add("tcpListener", Box::new(listener_resource));
+  debug!("New listener {} {}", rid, local_addr_str);
 
   Ok(JsonOp::Sync(json!({
     "rid": rid,
